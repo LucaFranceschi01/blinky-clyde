@@ -2,6 +2,7 @@ import contest.distanceCalculator as distanceCalculator
 from game import Directions, Actions, Agent
 import util
 import time
+from pacman import GameState
 
 class FeatureExtractor:
     def getFeatures(self, state, action):
@@ -43,7 +44,7 @@ def closestFood(pos, food, walls):
         if food[pos_x][pos_y]:
             return dist
         # otherwise spread out from the location to its neighbours
-        nbrs = Actions.getLegalNeighbors((pos_x, pos_y), walls)
+        nbrs = Actions.get_legal_neighbors((pos_x, pos_y), walls)
         for nbr_x, nbr_y in nbrs:
             fringe.append((nbr_x, nbr_y, dist+1))
     # no food found
@@ -60,21 +61,21 @@ class SimpleExtractor(FeatureExtractor):
 
     def getFeatures(self, state, action):
         # extract the grid of food and wall locations and get the ghost locations
-        food = state.getFood()
-        walls = state.getWalls()
-        ghosts = state.getGhostPositions()
+        food = GameState(state).getFood()
+        walls = GameState(state).getWalls()
+        ghosts = GameState(state).getGhostPositions() # PROBABLY THIS WILL CHANGE
 
         features = util.Counter()
 
         features["bias"] = 1.0
 
         # compute the location of pacman after he takes the action
-        x, y = state.getPacmanPosition()
-        dx, dy = Actions.directionToVector(action)
+        x, y = GameState(state).getPacmanPosition()
+        dx, dy = Actions.direction_to_vector(action)
         next_x, next_y = int(x + dx), int(y + dy)
 
         # count the number of ghosts 1-step away
-        features["#-of-ghosts-1-step-away"] = sum((next_x, next_y) in Actions.getLegalNeighbors(g, walls) for g in ghosts)
+        features["#-of-ghosts-1-step-away"] = sum((next_x, next_y) in Actions.get_legal_neighbors(g, walls) for g in ghosts)
 
         # if there is no danger of ghosts then add the food feature
         if not features["#-of-ghosts-1-step-away"] and food[next_x][next_y]:
@@ -191,7 +192,7 @@ class ReinforcementAgent(ValueEstimationAgent):
           state. This is what you should use to
           obtain legal actions for a state
         """
-        return self.actionFn(state)
+        return GameState(state).getLegalActions(self.index)
 
     def observeTransition(self, state,action,nextState,deltaReward):
         """
@@ -241,9 +242,6 @@ class ReinforcementAgent(ValueEstimationAgent):
         gamma    - discount factor
         numTraining - number of training episodes, i.e. no learning after these many episodes
         """
-        if actionFn == None:
-            actionFn = lambda state: state.getLegalActions()
-        self.actionFn = actionFn
         self.episodesSoFar = 0
         self.accumTrainRewards = 0.0
         self.accumTestRewards = 0.0

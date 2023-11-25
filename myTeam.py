@@ -58,6 +58,9 @@ class ApproximateQAgent(PacmanQAgent):
             q_max = max(q_max, [self.getQValue(state, a), a], key=lambda x:x[0])
         return q_max[1]
     
+    def getWeights(self):
+        return self.weights
+    
     def getQValue(self, state, action):
         """
           Should return Q(state,action) = w * featureVector
