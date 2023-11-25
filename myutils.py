@@ -2,7 +2,6 @@ import contest.distanceCalculator as distanceCalculator
 from game import Directions, Actions, Agent
 import util
 import time
-from pacman import GameState
 
 class FeatureExtractor:
     def getFeatures(self, state, action):
@@ -61,21 +60,21 @@ class SimpleExtractor(FeatureExtractor):
 
     def getFeatures(self, state, action):
         # extract the grid of food and wall locations and get the ghost locations
-        food = GameState(state).getFood()
-        walls = GameState(state).getWalls()
-        ghosts = GameState(state).getGhostPositions() # PROBABLY THIS WILL CHANGE
+        food = state.get_red_food()
+        walls = state.get_walls()
+        ghosts = state.get_agent_position(state.blue_team[0]) # uno cualquiera, pero tiene que ser del equipo contrario o algo asi
 
         features = util.Counter()
 
         features["bias"] = 1.0
 
         # compute the location of pacman after he takes the action
-        x, y = GameState(state).getPacmanPosition()
+        x, y = state.get_agent_position(state.red_team[0])
         dx, dy = Actions.direction_to_vector(action)
         next_x, next_y = int(x + dx), int(y + dy)
 
         # count the number of ghosts 1-step away
-        features["#-of-ghosts-1-step-away"] = sum((next_x, next_y) in Actions.get_legal_neighbors(g, walls) for g in ghosts)
+        # features["#-of-ghosts-1-step-away"] = sum((next_x, next_y) in Actions.get_legal_neighbors(g, walls) for g in ghosts)
 
         # if there is no danger of ghosts then add the food feature
         if not features["#-of-ghosts-1-step-away"] and food[next_x][next_y]:
@@ -192,7 +191,7 @@ class ReinforcementAgent(ValueEstimationAgent):
           state. This is what you should use to
           obtain legal actions for a state
         """
-        return GameState(state).getLegalActions(self.index)
+        return state.get_legal_actions()
 
     def observeTransition(self, state,action,nextState,deltaReward):
         """
