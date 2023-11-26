@@ -5,6 +5,7 @@ from game import Directions
 from util import nearestPoint
 import random
 import util
+import json
 
 #################
 # Team creation #
@@ -32,8 +33,14 @@ class ApproximateQAgent(PacmanQAgent):
     def __init__(self, index, time_for_computing=.1, **args):
         self.featExtractor = SimpleExtractor()
         PacmanQAgent.__init__(self, index, time_for_computing, **args)
-        self.weights = util.Counter()
+
+        with open('src/contest/agents/blinky-clyde/weights.txt', 'r') as fin:
+            raw_weights = fin.read()
+        
+        self.weights = util.Counter(json.loads(raw_weights))
+        
         self.start = None
+        # {'bias':0, '#_of_enemies_at_1_step':0,'dist_closest_food': 0.0, 'x_pos': 0, 'y_pos':0, 'dist_closest_enemy':0, 'dist_closest_vulnerable_enemy':0, 'food_carrying':0, }
 
     def register_initial_state(self, game_state):
         self.start = game_state.get_agent_position(self.index)
@@ -58,7 +65,7 @@ class ApproximateQAgent(PacmanQAgent):
             q_max = max(q_max, [self.getQValue(state, a), a], key=lambda x:x[0])
         return q_max[1]
     
-    def getWeights(self):
+    def getWeights(self): # gives some strange error
         return self.weights
     
     def getQValue(self, state, action):
@@ -67,9 +74,10 @@ class ApproximateQAgent(PacmanQAgent):
           where * is the dotProduct operator
         """
         "*** YOUR CODE HERE ***"
-        return self.getWeights() * self.featExtractor.getFeatures(state, action)
+        return self.weights * self.weights # * self.featExtractor.getFeatures(state, action)
+	# es temporal hasta que tengamos las features hechas 
 
-    def update(self, state, action, nextState, reward):
+    def update(self, state, action, nextState, reward, episode):
         """
            Should update your weights based on transition
         """
@@ -77,6 +85,10 @@ class ApproximateQAgent(PacmanQAgent):
         delta = (float(reward) + self.discount*self.computeValueFromQValues(nextState)) - self.getQValue(state, action)
         for key in self.featExtractor.getFeatures(state, action):
             self.weights[key] += self.alpha * delta * self.featExtractor.getFeatures(state, action)[key]
+
+        if episode % 2 == 0: # 2 es temporal
+            with open('src/contest/agents/blinky-clyde/weights_out.txt', 'w') as fout: 
+                fout.write(json.dumps(self.weights))
 
     def get_action(self, state):
         legalActions = self.getLegalActions(state)

@@ -2,6 +2,7 @@ import contest.distanceCalculator as distanceCalculator
 from game import Directions, Actions, Agent
 import util
 import time
+import json
 
 class FeatureExtractor:
     def getFeatures(self, state, action):
@@ -193,7 +194,7 @@ class ReinforcementAgent(ValueEstimationAgent):
         """
         return state.get_legal_actions()
 
-    def observeTransition(self, state,action,nextState,deltaReward):
+    def observeTransition(self, state, action, nextState, deltaReward, episode):
         """
             Called by environment to inform agent that a transition has
             been observed. This will result in a call to self.update
@@ -202,7 +203,7 @@ class ReinforcementAgent(ValueEstimationAgent):
             NOTE: Do *not* override or call this function
         """
         self.episodeRewards += deltaReward
-        self.update(state,action,nextState,deltaReward)
+        self.update(state, action, nextState, deltaReward, episode)
 
     def startEpisode(self):
         """
@@ -279,20 +280,20 @@ class ReinforcementAgent(ValueEstimationAgent):
         """
         if not self.lastState is None:
             reward = state.getScore() - self.lastState.getScore()
-            self.observeTransition(self.lastState, self.lastAction, state, reward)
+            self.observeTransition(self.lastState, self.lastAction, state, reward, self.episodesSoFar)
         return state
 
-    def registerInitialState(self, state):
+    def registerInitialState(self, state): # WE HAVE TO CALL FROM TRAIN.PY
         self.startEpisode()
         if self.episodesSoFar == 0:
             print('Beginning %d episodes of Training' % (self.numTraining))
 
-    def final(self, state):
+    def final(self, state): # aqui podemos guardar los weights para cada action
         """
           Called by Pacman game at the terminal state
         """
-        deltaReward = state.getScore() - self.lastState.getScore()
-        self.observeTransition(self.lastState, self.lastAction, state, deltaReward)
+        deltaReward = state.get_score() - self.lastState.get_score()
+        self.observeTransition(self.lastState, self.lastAction, state, deltaReward, self.episodesSoFar)
         self.stopEpisode()
 
         # Make sure we have this var
