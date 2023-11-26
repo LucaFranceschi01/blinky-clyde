@@ -73,20 +73,70 @@ class SimpleExtractor(FeatureExtractor):
         x, y = state.get_agent_position(state.red_team[0])
         dx, dy = Actions.direction_to_vector(action)
         next_x, next_y = int(x + dx), int(y + dy)
+        next_x_2, next_y_2 = int(x + 2*dx), int(y + 2*dy)
 
+        
+        # FEATURE 1: NUMBER OF ACTIVE GHOST ONE STEP AWAY
+        #count the number of ghosts 1-step away
+        features["#-of-ghosts-1-step-away"] = sum((next_x, next_y) in Actions.get_legal_neighbors(g, walls) for g in ghosts)
+
+        #FEATURE 2: NUMBER OF ACTIVE GHOST TWO STEPS AWAY
         # count the number of ghosts 1-step away
-        # features["#-of-ghosts-1-step-away"] = sum((next_x, next_y) in Actions.get_legal_neighbors(g, walls) for g in ghosts)
+        features["#-of-ghosts-2-step-away"] = sum((next_x_2, next_y_2) in Actions.get_legal_neighbors(g, walls) for g in ghosts)
 
+        #FEATURE 3: EAT FOOD IF NO ACTIVE GHOSTS NEAR
         # if there is no danger of ghosts then add the food feature
         if not features["#-of-ghosts-1-step-away"] and food[next_x][next_y]:
             features["eats-food"] = 1.0
 
-        dist = closestFood((next_x, next_y), food, walls)
-        if dist is not None:
+        #FEATURE 4: DISTANCE TO CLOSEST FOOD
+        dist_food = closestFood((next_x, next_y), food, walls)
+        if dist_food is not None:
             # make the distance a number less than one otherwise the update
             # will diverge wildly
-            features["closest-food"] = float(dist) / (walls.width * walls.height)
+            features["dist_closest_food"] = float(dist_food) / (walls.width * walls.height)
         features.divideAll(10.0)
+
+        #FEATURE 5: POSITION IN THE BOARD
+        #"x_pos": 0, "y_pos":0
+        features["x_pos"] = next_x
+        features["y_pos"] = next_y
+
+        #FEATURE 6: DISTANCE TO CLOSEST GHOST
+        #Implementar closestGhost
+        dist_ghost = closestGhost((next_x, next_y), food, walls)
+        if dist_ghost is not None:
+            # make the distance a number less than one otherwise the update
+            # will diverge wildly
+            features["dist_closest_enemy"] = float(dist_ghost) / (walls.width * walls.height)
+        features.divideAll(10.0)
+        
+        
+        #FEATURE 7: DISTANCE TO CLOSEST SCARED GHOST
+        #Implementar closestScaredGhost
+        dist_scared_ghost = closestScaredGhost((next_x, next_y), food, walls)
+        if dist_scared_ghost is not None:
+            # make the distance a number less than one otherwise the update
+            # will diverge wildly
+            features["dist_closest_vulnerable_enemy"] = float(dist_scared_ghost) / (walls.width * walls.height)
+        features.divideAll(10.0)
+
+        #FEATURE 8: FOOD_CARRYING
+        #features["food_carrying"] = 
+
+
+        # FEATURE 9: NUMBER OF SCARED GHOST ONE STEP AWAY
+        #count the number of ghosts 1-step away
+        features["#-of-scared-ghosts-1-step-away"] = sum((next_x, next_y) in Actions.get_legal_neighbors(g, walls) for g in ghosts)
+
+        #FEATURE 10: NUMBER OF SCARED GHOST TWO STEPS AWAY
+        # count the number of ghosts 1-step away
+        features["#-of-scared-ghosts-2-step-away"] = sum((next_x_2, next_y_2) in Actions.get_legal_neighbors(g, walls) for g in ghosts)
+
+
+        #FEATURE 11: DISTANCE TO CAPSULES??
+
+
         return features
         
 class ValueEstimationAgent(Agent):

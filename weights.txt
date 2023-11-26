@@ -1,1 +1,1 @@
-{"bias":0, "#_of_enemies_at_1_step":0,"dist_closest_food": 0.0, "x_pos": 0, "y_pos":0, "dist_closest_enemy":0, "dist_closest_vulnerable_enemy":0, "food_carrying":0}
+{"bias":0, "#_of_enemies_at_1_step":0, "#_of_enemies_at_2_step":0, "dist_closest_food": 0.0, "x_pos": 0, "y_pos":0, "dist_closest_enemy":0, "dist_closest_vulnerable_enemy":0, "food_carrying":0}
