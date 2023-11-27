@@ -50,6 +50,52 @@ def closestFood(pos, food, walls):
     # no food found
     return None
 
+#TO DO
+def closestGhost(pos, blue_ghost, walls):
+    """
+    Return closest ghost to our position
+    """
+    fringe = [(pos[0], pos[1], 0)]
+    expanded = set()
+    while fringe:
+        pos_x, pos_y, dist = fringe.pop(0)
+        if (pos_x, pos_y) in expanded:
+            continue
+        expanded.add((pos_x, pos_y))
+        # if we find a ghost at this location then exit
+        if blue_ghost[pos_x][pos_y]:
+            return dist
+        # otherwise spread out from the location to its neighbours
+        nbrs = Actions.get_legal_neighbors((pos_x, pos_y), walls)
+        for nbr_x, nbr_y in nbrs:
+            fringe.append((nbr_x, nbr_y, dist+1))
+    # no ghost found
+    return None
+
+
+#TO DO
+def closestScaredGhost(pos, blue_scared_ghost, walls):
+    """
+    Return closest ghost to our position
+    """
+    fringe = [(pos[0], pos[1], 0)]
+    expanded = set()
+    while fringe:
+        pos_x, pos_y, dist = fringe.pop(0)
+        if (pos_x, pos_y) in expanded:
+            continue
+        expanded.add((pos_x, pos_y))
+        # if we find a scared ghost at this location then exit
+        if blue_scared_ghost[pos_x][pos_y]:
+            return dist
+        # otherwise spread out from the location to its neighbours
+        nbrs = Actions.get_legal_neighbors((pos_x, pos_y), walls)
+        for nbr_x, nbr_y in nbrs:
+            fringe.append((nbr_x, nbr_y, dist+1))
+    # no scared ghost found
+    return None
+
+
 class SimpleExtractor(FeatureExtractor):
     """
     Returns simple features for a basic reflex Pacman:
@@ -63,8 +109,12 @@ class SimpleExtractor(FeatureExtractor):
         # extract the grid of food and wall locations and get the ghost locations
         food = state.get_red_food()
         walls = state.get_walls()
-        ghosts = state.get_agent_position(state.blue_team[0]) # uno cualquiera, pero tiene que ser del equipo contrario o algo asi
 
+        ####################################       
+        ghosts = state.get_agent_position(state.blue_team[0]) # uno cualquiera, pero tiene que ser del equipo contrario o algo asi
+        scared_ghosts = state.get_agent_position(state.blue_team[0]) ##HOW TO DIFFERENTIATE BOTH GHOSTS
+        ####################################
+        
         features = util.Counter()
 
         features["bias"] = 1.0
@@ -104,7 +154,7 @@ class SimpleExtractor(FeatureExtractor):
 
         #FEATURE 6: DISTANCE TO CLOSEST GHOST
         #Implementar closestGhost
-        dist_ghost = closestGhost((next_x, next_y), food, walls)
+        dist_ghost = closestGhost((next_x, next_y), ghosts, walls)
         if dist_ghost is not None:
             # make the distance a number less than one otherwise the update
             # will diverge wildly
@@ -114,7 +164,7 @@ class SimpleExtractor(FeatureExtractor):
         
         #FEATURE 7: DISTANCE TO CLOSEST SCARED GHOST
         #Implementar closestScaredGhost
-        dist_scared_ghost = closestScaredGhost((next_x, next_y), food, walls)
+        dist_scared_ghost = closestScaredGhost((next_x, next_y), scared_ghosts, walls)
         if dist_scared_ghost is not None:
             # make the distance a number less than one otherwise the update
             # will diverge wildly
@@ -127,11 +177,11 @@ class SimpleExtractor(FeatureExtractor):
 
         # FEATURE 9: NUMBER OF SCARED GHOST ONE STEP AWAY
         #count the number of ghosts 1-step away
-        features["#-of-scared-ghosts-1-step-away"] = sum((next_x, next_y) in Actions.get_legal_neighbors(g, walls) for g in ghosts)
+        features["#-of-scared-ghosts-1-step-away"] = sum((next_x, next_y) in Actions.get_legal_neighbors(g, walls) for g in scared_ghosts)
 
         #FEATURE 10: NUMBER OF SCARED GHOST TWO STEPS AWAY
         # count the number of ghosts 1-step away
-        features["#-of-scared-ghosts-2-step-away"] = sum((next_x_2, next_y_2) in Actions.get_legal_neighbors(g, walls) for g in ghosts)
+        features["#-of-scared-ghosts-2-step-away"] = sum((next_x_2, next_y_2) in Actions.get_legal_neighbors(g, walls) for g in scared_ghosts)
 
 
         #FEATURE 11: DISTANCE TO CAPSULES??
