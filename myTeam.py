@@ -1,11 +1,10 @@
 from capture import GameState
-from myutils import PacmanQAgent
 from util import nearestPoint
 import random
 import util
 import json
-from myutils import Actions, closestFood, closestEnemy, closestScaredGhost
-import captureAgents
+from game import Actions
+from captureAgents import CaptureAgent
 
 #################
 # Team creation #
@@ -29,9 +28,29 @@ def create_team(first_index, second_index, is_red,
     """
     return [eval(first)(first_index), eval(second)(second_index)]
 
-class ApproximateQAgent(PacmanQAgent):
-    def __init__(self, index, time_for_computing=.1, **args):
-        PacmanQAgent.__init__(self, index, time_for_computing, **args)
+class ApproximateQAgent(CaptureAgent):
+    def __init__(self, index, time_for_computing=.1):
+        super().__init__(index, time_for_computing)
+        # PacmanQAgent.__init__(self, index, time_for_computing, **args)
+        # args['epsilon'] = epsilon
+        # args['gamma'] = gamma
+        # args['alpha'] = alpha
+        # args['numTraining'] = numTraining
+        self.episodesSoFar = 0
+        self.accumTrainRewards = 0.0
+        self.accumTestRewards = 0.0
+        # self.numTraining = int(numTraining)
+        # self.epsilon = float(epsilon)
+        # self.alpha = float(alpha)
+        self.discount = float(1)
+        self._distributions = None
+        self.index = index
+        self.red = None
+        self.agentsOnTeam = None
+        self.distancer = None
+        self.observationHistory = []
+        self.timeForComputing = time_for_computing
+        self.display = None
 
         with open('agents/blinky-clyde/weights.txt', 'r') as fin: # habrá que cambiarlo por solo weights.txt
             raw_weights = fin.read()
@@ -44,11 +63,30 @@ class ApproximateQAgent(PacmanQAgent):
         self.episode = 0
         # {"bias":0, "#_of_enemies_at_1_step":0, "#_of_enemies_at_2_step":0, "dist_closest_food": 0.0, "x_pos": 0, "y_pos":0, "dist_closest_enemy":0, "dist_closest_vulnerable_enemy":0, "food_carrying":0}
 
-
     def register_initial_state(self, game_state):
+        super().register_initial_state(game_state)
         self.start = game_state.get_agent_position(self.index)
         self.next_state = game_state
-        PacmanQAgent.register_initial_state(self, game_state)
+
+    def computeValueFromQValues(self, state):
+        """
+          Returns max_action Q(state,action)
+          where the max is over legal actions.  Note that if
+          there are no legal actions, which is the case at the
+          terminal state, you should return a value of 0.0.
+        """
+        "*** YOUR CODE HERE ***"
+
+        legalActions = state.get_legal_actions(self.index)
+     
+        if len(legalActions) == 0:
+            return 0.0
+
+        #Compute maximum Q-value for each possible action of a state, and return the value
+        q_max = float('-inf')
+        for a in state.get_legal_actions(self.index): 
+            q_max = max(q_max, self.getQValue(state, a))
+        return q_max
 
     def computeActionFromQValues(self, game_state):
         """
@@ -78,29 +116,27 @@ class ApproximateQAgent(PacmanQAgent):
           Should return Q(state,action) = w * featureVector
           where * is the dotProduct operator
         """
-        features = self.get_features(state, action)
-        weights = self.get_weights(state, action)
-        return features * weights
+        self.features = self.get_features(state, action)
+        return self.features * self.get_weights(state, action)
 
     def update(self, state, action, nextState, reward):
         """
            Should update your weights based on transition
         """
         delta = (float(reward) + self.discount*self.computeValueFromQValues(nextState)) - self.getQValue(state, action)
-        for key in self.get_features(state, action):
+        for key in self.features:
             self.weights[key] += self.alpha * delta * self.get_features(state, action)[key]
                 
     def get_reward(self, state, action):
         '''A denser way of getting rewards that takes into account:
         More reward the closest to food
         If very near to an enemy, less reward'''
-        feats = self.get_features(state, action)
         reward = 0
 
-        reward -= feats['dist-closest-food'] * 100
-        reward += feats['eats-food']
-        reward += feats['eats-enemy']
-        reward -= feats['#-of-enemies-1-step-away'] * 10
+        reward -= self.features['dist-closest-food'] * 100
+        reward += self.features['eats-food']
+        reward += self.features['eats-enemy']
+        reward -= self.features['#-of-enemies-1-step-away'] * 10
 
         return reward
     
@@ -124,7 +160,7 @@ class ApproximateQAgent(PacmanQAgent):
         if len(legalActions) == 0:
           return action
         
-        if random.random() < 0.1:
+        if random.random() < 0.9:
             action = self.computeActionFromQValues(game_state) #Take best policy action
         else:
             action = random.choice(legalActions)
@@ -143,8 +179,20 @@ class ApproximateQAgent(PacmanQAgent):
             return successor.generate_successor(self.index, action)
         else:
             return successor
+        
+    def closestFood(self, pos, food):
+        """
+        closestFood -- this is similar to the function that we have
+        worked on in the search project; here its all in one place
+        """
+        dist_food = float('inf')
 
-    def get_features(self, game_state, action):
+        for i in range(food.width):
+            for j in range(food.height):
+                if food[i][j]:
+                    dist_food = min(dist_food, self.get_maze_distance(pos, (i, j)))
+
+    def get_features(self, game_state: GameState, action):
         """
         Returns a counter of features for the state
         """
@@ -166,10 +214,11 @@ class ApproximateQAgent(PacmanQAgent):
         walls = game_state.get_walls()
         score = game_state.get_score()
 
-        ####################################       
-        enemy_positions = [] 
+        ####################################  
+        distances = game_state.get_agent_distances()
+        enemy_positions = []
         for enemy in enemies:
-            enemy_positions.append(game_state.get_agent_position(enemy)) # uno cualquiera, pero tiene que ser del equipo contrario o algo asi
+            enemy_positions.append(game_state.data.agent_states[enemy]) # uno cualquiera, pero tiene que ser del equipo contrario o algo asi
 
         # Current and future locations of the agent
         x, y = game_state.get_agent_position(self.index)
@@ -179,16 +228,16 @@ class ApproximateQAgent(PacmanQAgent):
 
         # FEATURE 1: BIAS
         features["bias"] = 1.0
-        
+
         # FEATURE 2: NUMBER OF ENEMIES AT ONE STEP
-        features["#-of-enemies-1-step-away"] = sum([(next_x, next_y) == game_state.get_legal_actions(enemy) for enemy in enemies])
+        features["#-of-enemies-1-step-away"] = sum([distances[enemy] < 5 for enemy in enemies])
 
         # FEATURE 3: NUMBER OF ENEMIES TWO STEPS AWAY
-        features["#-of-enemies-2-step-away"] = sum([(next_x_2, next_y_2) == game_state.get_legal_actions(enemy) for enemy in enemies])
+        features["#-of-enemies-2-step-away"] = sum([distances[enemy] < 6 for enemy in enemies])
 
         # FEATURE 4: NUMBER OF SCARED ENEMIES ONE STEP AWAY
-        features["#-of-scared-enemies-1-step-away"] = sum([(next_x, next_y) == game_state.get_legal_actions(enemy) and 
-                                                          game_state.get_agent_state(enemy).scared_timer > 1 for enemy in enemies])
+        features["#-of-scared-enemies-1-step-away"] = sum([distances[enemy] < 5 and 
+                game_state.get_agent_state(enemy).scared_timer > 1 for enemy in enemies])
 
         # FEATURES 5 AND 6: EAT FOOD OR ENEMY
         features["eats-food"] = features["eats-enemy"] = 0.0
@@ -198,11 +247,10 @@ class ApproximateQAgent(PacmanQAgent):
             features["eats-food"] = 1.0
 
         # FEATURE 7: DISTANCE TO CLOSEST FOOD
-        dist_food = closestFood((next_x, next_y), enemy_food, walls)
-        # dist_food = maze_distance(self.index, )
+        dist_food = self.closestFood((next_x, next_y), enemy_food)
         if dist_food is not None:
             # make the distance a number less than one otherwise the update will diverge wildly
-            print(features["dist-closest-food"])
+            # print(features["dist-closest-food"])
             features["dist-closest-food"] = float(dist_food) / (walls.width * walls.height)
         # features.divideAll(10.0)
 
