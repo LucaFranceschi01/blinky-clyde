@@ -40,8 +40,8 @@ class ApproximateQAgent(CaptureAgent):
         self.accumTrainRewards = 0.0
         self.accumTestRewards = 0.0
         # self.numTraining = int(numTraining)
-        # self.epsilon = float(epsilon)
-        # self.alpha = float(alpha)
+        self.epsilon = float(0.5)
+        self.alpha = float(0.5)
         self.discount = float(1)
         self._distributions = None
         self.index = index
@@ -150,9 +150,6 @@ class ApproximateQAgent(CaptureAgent):
         with open('agents/blinky-clyde/weights.txt', 'w') as fout: 
             fout.write(json.dumps(self.weights))
 
-    def get_action(self, game_state):
-        return self.choose_action(game_state)
-
     def choose_action(self, game_state):
         legalActions = game_state.get_legal_actions(self.index)
         action = None
@@ -160,8 +157,8 @@ class ApproximateQAgent(CaptureAgent):
         if len(legalActions) == 0:
           return action
         
-        if random.random() < 0.9:
-            action = self.computeActionFromQValues(game_state) #Take best policy action
+        if random.random() < self.epsilon:
+            action = self.computeActionFromQValues(game_state) # Take best policy action
         else:
             action = random.choice(legalActions)
         
@@ -172,7 +169,6 @@ class ApproximateQAgent(CaptureAgent):
         Finds the next successor which is a grid position (location tuple).
         """
         successor = game_state.generate_successor(self.index, action)
-        self.next_state = successor
         pos = successor.get_agent_state(self.index).get_position()
         if pos != nearestPoint(pos):
             # Only half a grid position was covered
@@ -216,9 +212,11 @@ class ApproximateQAgent(CaptureAgent):
 
         ####################################  
         distances = game_state.get_agent_distances()
-        enemy_positions = []
-        for enemy in enemies:
-            enemy_positions.append(game_state.data.agent_states[enemy]) # uno cualquiera, pero tiene que ser del equipo contrario o algo asi
+        if len(distances) == 0: # chapuza gorda
+            distances = self.distances
+        else:
+            self.distances = distances
+        enemy_states = [game_state.data.agent_states[enemy] for enemy in enemies]
 
         # Current and future locations of the agent
         x, y = game_state.get_agent_position(self.index)
@@ -259,7 +257,7 @@ class ApproximateQAgent(CaptureAgent):
         features["y-pos"] = next_y / walls.height
 
         # FEATURE 10: FOOD_CARRYING
-        features["food-carrying"] = game_state.get_agent_state(enemy).num_carrying
+        features["food-carrying"] = game_state.get_agent_state(self.index).num_carrying
 
         return features
 
