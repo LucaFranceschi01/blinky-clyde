@@ -26,7 +26,6 @@ def closestFood(pos, food, walls):
     # no food found
     return None
 
-#TO DO
 def closestEnemy(pos, enemies, game_state):
     """
     Return closest ghost to our position
@@ -49,8 +48,6 @@ def closestEnemy(pos, enemies, game_state):
     # no ghost found
     return None
 
-
-#TO DO
 def closestScaredGhost(pos, blue_scared_ghost, walls):
     """
     Return closest ghost to our position
@@ -361,14 +358,14 @@ class QLearningAgent(ReinforcementAgent):
         """
         "*** YOUR CODE HERE ***"
 
-        legalActions = self.getLegalActions(state)
+        legalActions = state.get_legal_actions(self.index)
      
         if len(legalActions) == 0:
             return 0.0
 
         #Compute maximum Q-value for each possible action of a state, and return the value
         q_max = float('-inf')
-        for a in self.getLegalActions(state): 
+        for a in state.get_legal_actions(self.index): 
             q_max = max(q_max, self.getQValue(state, a))
         return q_max
 

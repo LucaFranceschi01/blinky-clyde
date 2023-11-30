@@ -5,6 +5,7 @@ import random
 import util
 import json
 from myutils import Actions, closestFood, closestEnemy, closestScaredGhost
+import captureAgents
 
 #################
 # Team creation #
@@ -38,11 +39,15 @@ class ApproximateQAgent(PacmanQAgent):
         self.weights = util.Counter(json.loads(raw_weights))
         
         self.start = None
+        self.action = None
+        self.next_state = None
+        self.episode = 0
         # {"bias":0, "#_of_enemies_at_1_step":0, "#_of_enemies_at_2_step":0, "dist_closest_food": 0.0, "x_pos": 0, "y_pos":0, "dist_closest_enemy":0, "dist_closest_vulnerable_enemy":0, "food_carrying":0}
 
 
     def register_initial_state(self, game_state):
         self.start = game_state.get_agent_position(self.index)
+        self.next_state = game_state
         PacmanQAgent.register_initial_state(self, game_state)
 
     def computeActionFromQValues(self, game_state):
@@ -62,6 +67,7 @@ class ApproximateQAgent(PacmanQAgent):
         q_max = [float('-inf'), legalActions[0]]
         for a in legalActions: 
             q_max = max(q_max, [self.getQValue(game_state, a), a], key=lambda x:x[0])
+        self.action = q_max[1]
         return q_max[1]
     
     def getWeights(self): # gives some strange error
@@ -76,17 +82,37 @@ class ApproximateQAgent(PacmanQAgent):
         weights = self.get_weights(state, action)
         return features * weights
 
-    def update(self, state, action, nextState, reward, episode):
+    def update(self, state, action, nextState, reward):
         """
            Should update your weights based on transition
         """
         delta = (float(reward) + self.discount*self.computeValueFromQValues(nextState)) - self.getQValue(state, action)
         for key in self.get_features(state, action):
             self.weights[key] += self.alpha * delta * self.get_features(state, action)[key]
+                
+    def get_reward(self, state, action):
+        '''A denser way of getting rewards that takes into account:
+        More reward the closest to food
+        If very near to an enemy, less reward'''
+        feats = self.get_features(state, action)
+        reward = 0
 
-        if episode % 2 == 0: # 2 es temporal
-            with open('agents/blinky-clyde/weights_out.txt', 'w') as fout: 
-                fout.write(json.dumps(self.weights))
+        reward -= feats['dist-closest-food'] * 100
+        reward += feats['eats-food']
+        reward += feats['eats-enemy']
+        reward -= feats['#-of-enemies-1-step-away'] * 10
+
+        return reward
+    
+    def final(self, state):
+        self.episode += 1
+        reward = self.get_reward(state, self.action)
+
+        self.update(state, self.action, self.next_state, reward)
+
+        # if self.episode % 2 == 0: # 2 es temporal
+        with open('agents/blinky-clyde/weights.txt', 'w') as fout: 
+            fout.write(json.dumps(self.weights))
 
     def get_action(self, game_state):
         return self.choose_action(game_state)
@@ -98,7 +124,7 @@ class ApproximateQAgent(PacmanQAgent):
         if len(legalActions) == 0:
           return action
         
-        if random.random() < 0.5:
+        if random.random() < 0.1:
             action = self.computeActionFromQValues(game_state) #Take best policy action
         else:
             action = random.choice(legalActions)
@@ -110,6 +136,7 @@ class ApproximateQAgent(PacmanQAgent):
         Finds the next successor which is a grid position (location tuple).
         """
         successor = game_state.generate_successor(self.index, action)
+        self.next_state = successor
         pos = successor.get_agent_state(self.index).get_position()
         if pos != nearestPoint(pos):
             # Only half a grid position was covered
@@ -172,17 +199,19 @@ class ApproximateQAgent(PacmanQAgent):
 
         # FEATURE 7: DISTANCE TO CLOSEST FOOD
         dist_food = closestFood((next_x, next_y), enemy_food, walls)
+        # dist_food = maze_distance(self.index, )
         if dist_food is not None:
             # make the distance a number less than one otherwise the update will diverge wildly
-            features["dist_closest_food"] = float(dist_food) / (walls.width * walls.height)
+            print(features["dist-closest-food"])
+            features["dist-closest-food"] = float(dist_food) / (walls.width * walls.height)
         # features.divideAll(10.0)
 
         # FEATURES 8 AND 9: POSITION IN THE BOARD
-        features["x_pos"] = next_x / walls.width - 0.5 # Normalized position in the board, with 0 in the center
-        features["y_pos"] = next_y / walls.height
+        features["x-pos"] = next_x / walls.width - 0.5 # Normalized position in the board, with 0 in the center
+        features["y-pos"] = next_y / walls.height
 
         # FEATURE 10: FOOD_CARRYING
-        features["food_carrying"] = game_state.get_agent_state(enemy).num_carrying
+        features["food-carrying"] = game_state.get_agent_state(enemy).num_carrying
 
         return features
 
