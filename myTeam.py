@@ -126,6 +126,9 @@ class ApproximateQAgent(CaptureAgent):
         delta = (float(reward) + self.discount*self.computeValueFromQValues(nextState)) - self.getQValue(state, action)
         for key in self.features:
             self.weights[key] += self.alpha * delta * self.get_features(state, action)[key]
+
+        with open('agents/blinky-clyde/weights.txt', 'w') as fout: 
+            fout.write(json.dumps(self.weights))
                 
     def get_reward(self, state, action):
         '''A denser way of getting rewards that takes into account:
@@ -147,8 +150,6 @@ class ApproximateQAgent(CaptureAgent):
         self.update(state, self.action, self.next_state, reward)
 
         # if self.episode % 2 == 0: # 2 es temporal
-        with open('agents/blinky-clyde/weights.txt', 'w') as fout: 
-            fout.write(json.dumps(self.weights))
 
     def choose_action(self, game_state):
         legalActions = game_state.get_legal_actions(self.index)
@@ -159,6 +160,7 @@ class ApproximateQAgent(CaptureAgent):
         
         if random.random() < self.epsilon:
             action = self.computeActionFromQValues(game_state) # Take best policy action
+            # self.update(game_state, action, self.get_successor(game_state, action), self.get_reward(game_state, action))
         else:
             action = random.choice(legalActions)
         
@@ -228,14 +230,17 @@ class ApproximateQAgent(CaptureAgent):
         features["bias"] = 1.0
 
         # FEATURE 2: NUMBER OF ENEMIES AT ONE STEP
-        features["#-of-enemies-1-step-away"] = sum([distances[enemy] < 5 for enemy in enemies])
+        features["#-of-enemies-1-step-away"] = sum([distances[enemy] < 3 for enemy in enemies])
 
         # FEATURE 3: NUMBER OF ENEMIES TWO STEPS AWAY
-        features["#-of-enemies-2-step-away"] = sum([distances[enemy] < 6 for enemy in enemies])
+        features["#-of-enemies-2-step-away"] = sum([distances[enemy] < 4 for enemy in enemies])
 
         # FEATURE 4: NUMBER OF SCARED ENEMIES ONE STEP AWAY
         features["#-of-scared-enemies-1-step-away"] = sum([distances[enemy] < 5 and 
                 game_state.get_agent_state(enemy).scared_timer > 1 for enemy in enemies])
+        
+        if (x == 4 and y == 14):
+            print('')
 
         # FEATURES 5 AND 6: EAT FOOD OR ENEMY
         features["eats-food"] = features["eats-enemy"] = 0.0
@@ -245,16 +250,17 @@ class ApproximateQAgent(CaptureAgent):
             features["eats-food"] = 1.0
 
         # FEATURE 7: DISTANCE TO CLOSEST FOOD
-        dist_food = self.closestFood((next_x, next_y), enemy_food)
-        if dist_food is not None:
+        current_dist_food = self.closestFood((x, y), enemy_food)
+        next_dist_food = self.closestFood((next_x, next_y), enemy_food)
+        if current_dist_food is not None and next_dist_food is not None:
             # make the distance a number less than one otherwise the update will diverge wildly
             # print(features["dist-closest-food"])
-            features["dist-closest-food"] = float(dist_food) / (walls.width * walls.height)
+            features["dist-closest-food"] = float(current_dist_food-next_dist_food) / (walls.width * walls.height)
         # features.divideAll(10.0)
 
         # FEATURES 8 AND 9: POSITION IN THE BOARD
-        features["x-pos"] = next_x / walls.width - 0.5 # Normalized position in the board, with 0 in the center
-        features["y-pos"] = next_y / walls.height
+        # features["x-pos"] = next_x / walls.width - 0.5 # Normalized position in the board, with 0 in the center
+        # features["y-pos"] = next_y / walls.height
 
         # FEATURE 10: FOOD_CARRYING
         features["food-carrying"] = game_state.get_agent_state(self.index).num_carrying
