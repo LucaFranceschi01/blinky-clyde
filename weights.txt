@@ -1,1 +1,1 @@
-{"bias": -481.0, "#-of-enemies-1-step-away": -481.0, "#-of-enemies-2-step-away": -496.0, "#-of-scared-enemies-1-step-away": -36.0, "eats-food": 0.0, "eats-enemy": -36.0, "dist-closest-food": -10.0, "food-carrying": -1408.0}
+{"bias": -Infinity, "#-of-enemies-1-step-away": NaN, "#-of-enemies-2-step-away": NaN, "#-of-scared-enemies-1-step-away": NaN, "eats-food": NaN, "eats-enemy": NaN, "dist-closest-food": -Infinity, "food-carrying": -Infinity}

@@ -134,12 +134,38 @@ class ApproximateQAgent(CaptureAgent):
         '''A denser way of getting rewards that takes into account:
         More reward the closest to food
         If very near to an enemy, less reward'''
+        # reward = 0
+        # reward += self.features['dist-closest-food'] * 100
+        # reward += self.features['eats-food']
+        # reward += self.features['eats-enemy']
+        # reward -= self.features['#-of-enemies-1-step-away'] * 100
+        next_state = self.get_successor(state, action)
         reward = 0
+        food = self.get_food(state)
+        my_state = state.get_agent_state(self.index)
+        enemies_id = self.get_opponents(state)
+        current_pos = state.get_agent_position(self.index)
+        next_pos = next_state.get_agent_position(self.index)
+        distances = state.get_agent_distances()
+        if len(distances) == 0: # chapuza gorda
+            distances = self.distances
+        else:
+            self.distances = distances
 
-        reward -= self.features['dist-closest-food'] * 100
-        reward += self.features['eats-food']
-        reward += self.features['eats-enemy']
-        reward -= self.features['#-of-enemies-1-step-away'] * 10
+        current_distance_to_food = self.get_maze_distance(current_pos, self.closestFood(current_pos, food)[1])
+        new_distance_to_food = self.get_maze_distance(next_pos, self.closestFood(next_pos, food)[1])
+
+        reward += current_distance_to_food - new_distance_to_food
+
+        for enemy in enemies_id:
+            enemies_at_2_step = self.distances[enemy] < 2
+            if not my_state.is_pacman:
+                reward += enemies_at_2_step * 10
+            else:
+                reward -= enemies_at_2_step * 10
+
+        reward += my_state.num_carrying
+        reward += my_state.num_returned * 2
 
         return reward
     
@@ -160,7 +186,7 @@ class ApproximateQAgent(CaptureAgent):
         
         if random.random() < self.epsilon:
             action = self.computeActionFromQValues(game_state) # Take best policy action
-            # self.update(game_state, action, self.get_successor(game_state, action), self.get_reward(game_state, action))
+            self.update(game_state, action, self.get_successor(game_state, action), self.get_reward(game_state, action))
         else:
             action = random.choice(legalActions)
         
@@ -183,12 +209,12 @@ class ApproximateQAgent(CaptureAgent):
         closestFood -- this is similar to the function that we have
         worked on in the search project; here its all in one place
         """
-        dist_food = float('inf')
-
+        dist_food = [float('inf'), (0, 0)]
         for i in range(food.width):
             for j in range(food.height):
                 if food[i][j]:
-                    dist_food = min(dist_food, self.get_maze_distance(pos, (i, j)))
+                    dist_food = min(dist_food, [self.get_maze_distance(pos, (i, j)), (i, j)], key=lambda x:x[0])
+        return dist_food
 
     def get_features(self, game_state: GameState, action):
         """
@@ -238,9 +264,6 @@ class ApproximateQAgent(CaptureAgent):
         # FEATURE 4: NUMBER OF SCARED ENEMIES ONE STEP AWAY
         features["#-of-scared-enemies-1-step-away"] = sum([distances[enemy] < 5 and 
                 game_state.get_agent_state(enemy).scared_timer > 1 for enemy in enemies])
-        
-        if (x == 4 and y == 14):
-            print('')
 
         # FEATURES 5 AND 6: EAT FOOD OR ENEMY
         features["eats-food"] = features["eats-enemy"] = 0.0
@@ -250,8 +273,8 @@ class ApproximateQAgent(CaptureAgent):
             features["eats-food"] = 1.0
 
         # FEATURE 7: DISTANCE TO CLOSEST FOOD
-        current_dist_food = self.closestFood((x, y), enemy_food)
-        next_dist_food = self.closestFood((next_x, next_y), enemy_food)
+        current_dist_food = self.closestFood((x, y), enemy_food)[0]
+        next_dist_food = self.closestFood((next_x, next_y), enemy_food)[0]
         if current_dist_food is not None and next_dist_food is not None:
             # make the distance a number less than one otherwise the update will diverge wildly
             # print(features["dist-closest-food"])
