@@ -129,6 +129,7 @@ class ApproximateQAgent(CaptureAgent):
 
         with open('agents/blinky-clyde/weights.txt', 'w') as fout: 
             fout.write(json.dumps(self.weights))
+
                 
     def get_reward(self, state, action):
         '''A denser way of getting rewards that takes into account:
@@ -152,20 +153,29 @@ class ApproximateQAgent(CaptureAgent):
         else:
             self.distances = distances
 
-        current_distance_to_food = self.get_maze_distance(current_pos, self.closestFood(current_pos, food)[1])
-        new_distance_to_food = self.get_maze_distance(next_pos, self.closestFood(next_pos, food)[1])
+        # is there food remaining?
+        remaining_food = 0
+        for i in range(food.width):
+            for j in range(food.height):
+                if food[i][j]:
+                    remaining_food += 1
 
-        reward += current_distance_to_food - new_distance_to_food
+        if remaining_food > 0:
+            current_distance_to_food = self.get_maze_distance(current_pos, self.closestFood(current_pos, food)[1])
+            new_distance_to_food = self.get_maze_distance(next_pos, self.closestFood(next_pos, food)[1])
+            reward += current_distance_to_food - new_distance_to_food / 2
 
         for enemy in enemies_id:
             enemies_at_2_step = self.distances[enemy] < 2
             if not my_state.is_pacman:
                 reward += enemies_at_2_step * 10
             else:
-                reward -= enemies_at_2_step * 10
+                reward -= enemies_at_2_step * 100
 
-        reward += my_state.num_carrying
-        reward += my_state.num_returned * 2
+        # reward -= my_state.num_carrying
+        # reward += my_state.num_returned * 2
+        if my_state.num_carrying > 0:
+            reward -= state.get_agent_position(self.index)[0] * my_state.num_carrying
 
         return reward
     
@@ -176,6 +186,8 @@ class ApproximateQAgent(CaptureAgent):
         self.update(state, self.action, self.next_state, reward)
 
         # if self.episode % 2 == 0: # 2 es temporal
+        # with open('agents/blinky-clyde/weights.txt', 'w') as fout: 
+        #     fout.write(json.dumps(self.weights))
 
     def choose_action(self, game_state):
         legalActions = game_state.get_legal_actions(self.index)
@@ -287,6 +299,9 @@ class ApproximateQAgent(CaptureAgent):
 
         # FEATURE 10: FOOD_CARRYING
         features["food-carrying"] = game_state.get_agent_state(self.index).num_carrying
+
+        if game_state.get_agent_state(self.index).num_carrying > 0:
+            features["return-food"] = 5
 
         return features
 
