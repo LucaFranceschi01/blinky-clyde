@@ -139,6 +139,8 @@ class ApproximateQAgent(CaptureAgent):
             current_pos = state.get_agent_position(self.index)
             next_pos = next_state.get_agent_position(self.index)
             distances = state.get_agent_distances()
+
+
             if len(distances) == 0: # chapuza gorda
                 distances = self.distances
             else:
@@ -156,10 +158,28 @@ class ApproximateQAgent(CaptureAgent):
                 new_distance_to_food = self.get_maze_distance(next_pos, self.closestFood(next_pos, food)[1])
                 reward += current_distance_to_food - new_distance_to_food / 2
 
-            self.reaward = reward
-        else:
-            return self.reaward
 
+            for enemy_id in enemies_id:
+                enemy_state = state.get_agent_state(enemy_id)
+                enemy_pos = enemy_state.get_position()
+
+                if enemy_pos is not None:
+                    distance_to_enemy = self.get_maze_distance(current_pos, enemy_pos)
+                    if distance_to_enemy < 2:
+                        reward -= 50  
+          
+   
+     
+            # distance_to_home = self.get_maze_distance(current_pos, self.start)
+            # if distance_to_home == 0: 
+            #     reward += 70  
+            # elif distance_to_home < 2:  
+            #     reward += 5  
+
+            self.reward = reward
+        else:
+            return self.reward
+    
         return reward
     
     def final(self, state):
@@ -211,6 +231,7 @@ class ApproximateQAgent(CaptureAgent):
                 if food[i][j]:
                     dist_food = min(dist_food, [self.get_maze_distance(pos, (i, j)), (i, j)], key=lambda x:x[0])
         return dist_food
+      
 
     def get_features(self, game_state: GameState, action):
         """
@@ -221,7 +242,7 @@ class ApproximateQAgent(CaptureAgent):
         my_agent_state = game_state.get_agent_state(self.index)
         enemies_id = self.get_opponents(game_state)
         enemy_food = self.get_food(game_state)
-        enemy_states = [game_state.data.agent_states[enemy] for enemy in enemies_id]
+        # enemy_states = [game_state.data.agent_states[enemy] for enemy in enemies_id]
         walls = game_state.get_walls()
 
         distances = game_state.get_agent_distances()
@@ -235,6 +256,7 @@ class ApproximateQAgent(CaptureAgent):
         dx, dy = Actions.direction_to_vector(action)
         next_x, next_y = int(x + dx), int(y + dy)
 
+        # #FEATURE 1: DISTANCE TO FOOD
         remaining_food = 0
         for i in range(enemy_food.width):
             for j in range(enemy_food.height):
@@ -247,6 +269,23 @@ class ApproximateQAgent(CaptureAgent):
             features['dist-closest-food'] = float(current_distance_to_food-new_distance_to_food) / (walls.width * walls.height)
         else:
             features['dist-closest-food'] = self.features['dist-closest-food']
+
+
+        #FEATURE 2: DISTANCE TO ENEMIE 
+        for enemy_id in enemies_id:
+            enemy_state = game_state.get_agent_state(enemy_id)
+            enemy_pos = enemy_state.get_position()
+
+            if enemy_pos is not None:
+                distance_to_enemy = self.get_maze_distance((x, y), enemy_pos)
+                if distance_to_enemy < 2:
+                    features['enemy-close'] += 10     
+
+
+        #FEATURE 3: RETURN FOOD TO HOME
+        #distance_to_home = self.get_maze_distance((x, y), self.start)
+        #features['return-food'] = float(distance_to_home) / (walls.width * walls.height)
+
 
         self.features = features
 

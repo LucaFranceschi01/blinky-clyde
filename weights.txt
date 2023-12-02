@@ -1,1 +1,1 @@
-{"dist-closest-food": 1.0}
+{"dist-closest-food": 1.0, "enemy-close": 0.0}
