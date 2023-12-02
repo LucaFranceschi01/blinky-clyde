@@ -36,10 +36,10 @@ class ApproximateQAgent(CaptureAgent):
         # args['gamma'] = gamma
         # args['alpha'] = alpha
         # args['numTraining'] = numTraining
+        # self.numTraining = int(numTraining)
         self.episodesSoFar = 0
         self.accumTrainRewards = 0.0
         self.accumTestRewards = 0.0
-        # self.numTraining = int(numTraining)
         self.epsilon = float(0.5)
         self.alpha = float(0.5)
         self.discount = float(1)
@@ -52,7 +52,7 @@ class ApproximateQAgent(CaptureAgent):
         self.timeForComputing = time_for_computing
         self.display = None
 
-        with open('agents/blinky-clyde/weights.txt', 'r') as fin: # habrá que cambiarlo por solo weights.txt
+        with open('agents/blinky-clyde/weights.txt', 'r') as fin:
             raw_weights = fin.read()
 
         self.weights = util.Counter(json.loads(raw_weights))
@@ -61,7 +61,6 @@ class ApproximateQAgent(CaptureAgent):
         self.action = None
         self.next_state = None
         self.episode = 0
-        # {"bias":0, "#_of_enemies_at_1_step":0, "#_of_enemies_at_2_step":0, "dist_closest_food": 0.0, "x_pos": 0, "y_pos":0, "dist_closest_enemy":0, "dist_closest_vulnerable_enemy":0, "food_carrying":0}
 
     def register_initial_state(self, game_state):
         super().register_initial_state(game_state)
@@ -97,27 +96,22 @@ class ApproximateQAgent(CaptureAgent):
         "*** YOUR CODE HERE ***"
 
         legalActions = game_state.get_legal_actions(self.index)
-     
         if len(legalActions) == 0:
             return None
         
-        #Compute maximum Q-value for each possible action of a game_state, and return the value and the action taken
+        # Compute maximum Q-value for each possible action of a game_state, and return the value and the action taken
         q_max = [float('-inf'), legalActions[0]]
         for a in legalActions: 
             q_max = max(q_max, [self.getQValue(game_state, a), a], key=lambda x:x[0])
         self.action = q_max[1]
         return q_max[1]
     
-    def getWeights(self): # gives some strange error
-        return self.weights
-    
     def getQValue(self, state, action):
         """
           Should return Q(state,action) = w * featureVector
           where * is the dotProduct operator
         """
-        self.features = self.get_features(state, action)
-        return self.features * self.get_weights(state, action)
+        return self.get_features(state, action) * self.get_weights()
 
     def update(self, state, action, nextState, reward):
         """
@@ -126,63 +120,51 @@ class ApproximateQAgent(CaptureAgent):
         delta = (float(reward) + self.discount*self.computeValueFromQValues(nextState)) - self.getQValue(state, action)
         for key in self.features:
             self.weights[key] += self.alpha * delta * self.get_features(state, action)[key]
+        self.weights.normalize()
 
         with open('agents/blinky-clyde/weights.txt', 'w') as fout: 
             fout.write(json.dumps(self.weights))
-
                 
     def get_reward(self, state, action):
         '''A denser way of getting rewards that takes into account:
         More reward the closest to food
         If very near to an enemy, less reward'''
-        # reward = 0
-        # reward += self.features['dist-closest-food'] * 100
-        # reward += self.features['eats-food']
-        # reward += self.features['eats-enemy']
-        # reward -= self.features['#-of-enemies-1-step-away'] * 100
-        next_state = self.get_successor(state, action)
-        reward = 0
-        food = self.get_food(state)
-        my_state = state.get_agent_state(self.index)
-        enemies_id = self.get_opponents(state)
-        current_pos = state.get_agent_position(self.index)
-        next_pos = next_state.get_agent_position(self.index)
-        distances = state.get_agent_distances()
-        if len(distances) == 0: # chapuza gorda
-            distances = self.distances
-        else:
-            self.distances = distances
 
-        # is there food remaining?
-        remaining_food = 0
-        for i in range(food.width):
-            for j in range(food.height):
-                if food[i][j]:
-                    remaining_food += 1
-
-        if remaining_food > 0:
-            current_distance_to_food = self.get_maze_distance(current_pos, self.closestFood(current_pos, food)[1])
-            new_distance_to_food = self.get_maze_distance(next_pos, self.closestFood(next_pos, food)[1])
-            reward += current_distance_to_food - new_distance_to_food / 2
-
-        for enemy in enemies_id:
-            enemies_at_2_step = self.distances[enemy] < 2
-            if not my_state.is_pacman:
-                reward += enemies_at_2_step * 10
+        if not state.is_over():
+            next_state = self.get_successor(state, action)
+            reward = 0
+            food = self.get_food(state)
+            my_state = state.get_agent_state(self.index)
+            enemies_id = self.get_opponents(state)
+            current_pos = state.get_agent_position(self.index)
+            next_pos = next_state.get_agent_position(self.index)
+            distances = state.get_agent_distances()
+            if len(distances) == 0: # chapuza gorda
+                distances = self.distances
             else:
-                reward -= enemies_at_2_step * 100
+                self.distances = distances
 
-        # reward -= my_state.num_carrying
-        # reward += my_state.num_returned * 2
-        if my_state.num_carrying > 0:
-            reward -= state.get_agent_position(self.index)[0] * my_state.num_carrying
+            # How much food left ?
+            remaining_food = 0
+            for i in range(food.width):
+                for j in range(food.height):
+                    if food[i][j]:
+                        remaining_food += 1
+
+            if remaining_food > 0:
+                current_distance_to_food = self.get_maze_distance(current_pos, self.closestFood(current_pos, food)[1])
+                new_distance_to_food = self.get_maze_distance(next_pos, self.closestFood(next_pos, food)[1])
+                reward += current_distance_to_food - new_distance_to_food / 2
+
+            self.reaward = reward
+        else:
+            return self.reaward
 
         return reward
     
     def final(self, state):
         self.episode += 1
         reward = self.get_reward(state, self.action)
-
         self.update(state, self.action, self.next_state, reward)
 
         # if self.episode % 2 == 0: # 2 es temporal
@@ -208,13 +190,15 @@ class ApproximateQAgent(CaptureAgent):
         """
         Finds the next successor which is a grid position (location tuple).
         """
-        successor = game_state.generate_successor(self.index, action)
-        pos = successor.get_agent_state(self.index).get_position()
-        if pos != nearestPoint(pos):
-            # Only half a grid position was covered
-            return successor.generate_successor(self.index, action)
-        else:
-            return successor
+        if not game_state.is_over():
+            successor = game_state.generate_successor(self.index, action)
+            pos = successor.get_agent_state(self.index).get_position()
+            if pos != nearestPoint(pos):
+                # Only half a grid position was covered
+                return successor.generate_successor(self.index, action)
+            else:
+                return successor
+        else: return None
         
     def closestFood(self, pos, food):
         """
@@ -232,80 +216,43 @@ class ApproximateQAgent(CaptureAgent):
         """
         Returns a counter of features for the state
         """
-        # features = util.Counter()
-        # successor = self.get_successor(game_state, action)
-        # features['successor_score'] = self.get_score(successor)
-        
         # Initialize helpful variables
         features = util.Counter()
-        if game_state.is_on_red_team(self.index):
-            enemy_food = game_state.get_blue_food()
-            team_food = game_state.get_red_food()
-            enemies = game_state.get_blue_team_indices()
-        else:
-            enemy_food = game_state.get_red_food()
-            team_food = game_state.get_blue_food()
-            enemies = game_state.get_red_team_indices()
-
+        my_agent_state = game_state.get_agent_state(self.index)
+        enemies_id = self.get_opponents(game_state)
+        enemy_food = self.get_food(game_state)
+        enemy_states = [game_state.data.agent_states[enemy] for enemy in enemies_id]
         walls = game_state.get_walls()
-        score = game_state.get_score()
 
-        ####################################  
         distances = game_state.get_agent_distances()
         if len(distances) == 0: # chapuza gorda
             distances = self.distances
         else:
             self.distances = distances
-        enemy_states = [game_state.data.agent_states[enemy] for enemy in enemies]
 
         # Current and future locations of the agent
         x, y = game_state.get_agent_position(self.index)
         dx, dy = Actions.direction_to_vector(action)
         next_x, next_y = int(x + dx), int(y + dy)
-        next_x_2, next_y_2 = int(x + 2*dx), int(y + 2*dy) # NO ME CONVENCE, son 2 steps en linea recta, no en otras direcciones que también estén a 2 steps
 
-        # FEATURE 1: BIAS
-        features["bias"] = 1.0
+        remaining_food = 0
+        for i in range(enemy_food.width):
+            for j in range(enemy_food.height):
+                if enemy_food[i][j]:
+                    remaining_food += 1
 
-        # FEATURE 2: NUMBER OF ENEMIES AT ONE STEP
-        features["#-of-enemies-1-step-away"] = sum([distances[enemy] < 3 for enemy in enemies])
+        if remaining_food > 0:
+            current_distance_to_food = self.get_maze_distance((x, y), self.closestFood((x, y), enemy_food)[1])
+            new_distance_to_food = self.get_maze_distance((next_x, next_y), self.closestFood((next_x, next_y), enemy_food)[1])
+            features['dist-closest-food'] = float(current_distance_to_food-new_distance_to_food) / (walls.width * walls.height)
+        else:
+            features['dist-closest-food'] = self.features['dist-closest-food']
 
-        # FEATURE 3: NUMBER OF ENEMIES TWO STEPS AWAY
-        features["#-of-enemies-2-step-away"] = sum([distances[enemy] < 4 for enemy in enemies])
-
-        # FEATURE 4: NUMBER OF SCARED ENEMIES ONE STEP AWAY
-        features["#-of-scared-enemies-1-step-away"] = sum([distances[enemy] < 5 and 
-                game_state.get_agent_state(enemy).scared_timer > 1 for enemy in enemies])
-
-        # FEATURES 5 AND 6: EAT FOOD OR ENEMY
-        features["eats-food"] = features["eats-enemy"] = 0.0
-        if features["#-of-scared-enemies-1-step-away"] > 0:
-            features["eats-enemy"] = 1.0
-        elif features["#-of-enemies-1-step-away"] == 0 and (next_x, next_y) in enemy_food:
-            features["eats-food"] = 1.0
-
-        # FEATURE 7: DISTANCE TO CLOSEST FOOD
-        current_dist_food = self.closestFood((x, y), enemy_food)[0]
-        next_dist_food = self.closestFood((next_x, next_y), enemy_food)[0]
-        if current_dist_food is not None and next_dist_food is not None:
-            # make the distance a number less than one otherwise the update will diverge wildly
-            # print(features["dist-closest-food"])
-            features["dist-closest-food"] = float(current_dist_food-next_dist_food) / (walls.width * walls.height)
-        # features.divideAll(10.0)
-
-        # FEATURES 8 AND 9: POSITION IN THE BOARD
-        # features["x-pos"] = next_x / walls.width - 0.5 # Normalized position in the board, with 0 in the center
-        # features["y-pos"] = next_y / walls.height
-
-        # FEATURE 10: FOOD_CARRYING
-        features["food-carrying"] = game_state.get_agent_state(self.index).num_carrying
-
-        if game_state.get_agent_state(self.index).num_carrying > 0:
-            features["return-food"] = 5
+        self.features = features
 
         return features
 
-    def get_weights(self, game_state, action):
+    def get_weights(self):
         """
         Normally, weights do not depend on the game game_state.  They can be either
         a counter or a dictionary.

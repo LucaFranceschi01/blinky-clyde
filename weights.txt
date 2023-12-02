@@ -1,1 +1,1 @@
-{"bias": 0.0, "#-of-enemies-1-step-away": 0.0, "#-of-enemies-2-step-away": 0.0, "#-of-scared-enemies-1-step-away": 0.0, "eats-food": 0.0, "eats-enemy": 0.0, "dist-closest-food": 0.0, "food-carrying": 0.0, "return-food": 0}
+{"dist-closest-food": 1.0}
