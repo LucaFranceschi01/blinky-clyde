@@ -1,1 +1,1 @@
-{"dist-closest-food": 1.0, "enemy-close": 0.0}
+{"dist-closest-food": 6.17330860879374, "invaders-close": 242.22810820803156, "defenders-close": -760.0550083511209}
