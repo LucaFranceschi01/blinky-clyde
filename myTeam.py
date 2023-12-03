@@ -67,6 +67,14 @@ class ApproximateQAgent(CaptureAgent):
         self.start = game_state.get_agent_position(self.index)
         self.next_state = game_state
 
+        food = self.get_food_you_are_defending(game_state)
+        remaining_food = 0
+        for i in range(food.width):
+            for j in range(food.height):
+                if food[i][j]:
+                    remaining_food += 1
+        self.initial_food = remaining_food
+
     def computeValueFromQValues(self, state):
         """
           Returns max_action Q(state,action)
@@ -74,14 +82,12 @@ class ApproximateQAgent(CaptureAgent):
           there are no legal actions, which is the case at the
           terminal state, you should return a value of 0.0.
         """
-        "*** YOUR CODE HERE ***"
-
         legalActions = state.get_legal_actions(self.index)
      
         if len(legalActions) == 0:
             return 0.0
 
-        #Compute maximum Q-value for each possible action of a state, and return the value
+        # Compute maximum Q-value for each possible action of a state, and return the value
         q_max = float('-inf')
         for a in state.get_legal_actions(self.index): 
             q_max = max(q_max, self.getQValue(state, a))
@@ -93,8 +99,6 @@ class ApproximateQAgent(CaptureAgent):
           are no legal actions, which is the case at the terminal state,
           you should return None.
         """
-        "*** YOUR CODE HERE ***"
-
         legalActions = game_state.get_legal_actions(self.index)
         if len(legalActions) == 0:
             return None
@@ -136,11 +140,14 @@ class ApproximateQAgent(CaptureAgent):
             successor = self.get_successor(state, action)
             current_pos = state.get_agent_position(self.index)
             next_pos = successor.get_agent_position(self.index)
+            walls = state.get_walls()
             
             distances = state.get_agent_distances()
-            enemies = [successor.get_agent_state(i) for i in self.get_opponents(successor)]
+            enemies_next = [successor.get_agent_state(i) for i in self.get_opponents(successor)]
+            enemies = [state.get_agent_state(i) for i in self.get_opponents(state)]
 
             food = self.get_food(state)
+            team_food = self.get_food_you_are_defending(state)
 
             if len(distances) == 0: # chapuza gorda
                 distances = self.distances
@@ -148,51 +155,85 @@ class ApproximateQAgent(CaptureAgent):
                 self.distances = distances
 
             # Count food left to eat
-            remaining_food = 0
+            remaining_food_to_eat = 0
             for i in range(food.width):
                 for j in range(food.height):
                     if food[i][j]:
-                        remaining_food += 1
+                        remaining_food_to_eat += 1
 
-            # WHILE THERE IS FOOD TO EAT, GO TOWARDS IT
-            if remaining_food > 0:
+            remaining_food_to_defend = 0
+            for i in range(team_food.width):
+                for j in range(team_food.height):
+                    if team_food[i][j]:
+                        remaining_food_to_defend += 1
+
+            home_dist_curr = self.get_maze_distance(current_pos, self.start)
+            home_dist_new = self.get_maze_distance(next_pos, self.start)
+
+            if remaining_food_to_eat > 0:
                 food_dist_curr = self.get_maze_distance(current_pos, self.closestFood(current_pos, food)[1])
                 food_dist_new = self.get_maze_distance(next_pos, self.closestFood(next_pos, food)[1])
-                reward += (food_dist_curr - food_dist_new) / remaining_food
 
-            # IF THERE IS AN INVADER, GO TOWARDS IT
+            if remaining_food_to_defend > 0:
+                food_def_dist_curr = self.get_maze_distance(current_pos, self.closestFood(current_pos, team_food)[1])
+                food_def_dist_new = self.get_maze_distance(next_pos, self.closestFood(next_pos, team_food)[1])
+
+            # Count near defenders (agent is attacking)
+            defenders = [a for a in enemies if not a.is_pacman and a.get_position() is not None]
+            defender_dist_curr = defender_dist_new = float('inf')
+            for df in defenders:
+                defender_dist_curr = min(defender_dist_curr, self.get_maze_distance(current_pos, df.get_position()))
+                defender_dist_new = min(defender_dist_new, self.get_maze_distance(next_pos, df.get_position()))
+
+            # Count near invaders
             invaders = [a for a in enemies if a.is_pacman and a.get_position() is not None]
             invader_dist_curr = invader_dist_new = float('inf')
             for inv in invaders:
                 invader_dist_curr = min(invader_dist_curr, self.get_maze_distance(current_pos, inv.get_position()))
                 invader_dist_new = min(invader_dist_new, self.get_maze_distance(next_pos, inv.get_position()))
 
+            # If there are near defenders, do not go towards it
+            # if len(defenders) > 0:
+            #     reward += defender_dist_new - defender_dist_curr
+            # else:
+            #     # WHILE THERE IS FOOD TO EAT, GO TOWARDS IT
+            #     if remaining_food_to_eat > 0:
+            #         food_dist_curr = self.get_maze_distance(current_pos, self.closestFood(current_pos, food)[1])
+            #         food_dist_new = self.get_maze_distance(next_pos, self.closestFood(next_pos, food)[1])
+            #         reward += (food_dist_curr - food_dist_new) / remaining_food_to_eat
+
+            # if len(invaders) > 0:
+            #     if my_state.scared_timer > 0:
+            #         reward += invader_dist_new - invader_dist_curr
+            #     else:
+            #         reward += invader_dist_curr - invader_dist_new
+
             if len(invaders) > 0:
                 if my_state.scared_timer > 0:
                     reward += invader_dist_new - invader_dist_curr
                 else:
                     reward += invader_dist_curr - invader_dist_new
-
-            # IF THERE IS A DEFENDER, RUN
-            defenders = [a for a in enemies if a.is_pacman and a.get_position() is not None]
-            defender_dist_curr = defender_dist_new = float('inf')
-            for df in defenders:
-                defender_dist_curr = min(defender_dist_curr, self.get_maze_distance(current_pos, df.get_position()))
-                defender_dist_new = min(defender_dist_new, self.get_maze_distance(next_pos, df.get_position()))
-
-            if len(defenders) > 0: # avoid +inf ?
-                reward += defender_dist_new - defender_dist_curr
-
-            # IF CARRIES FOOD RETURN HOME
-            if my_state.num_carrying > 0:
-                home_dist_curr = self.get_maze_distance(current_pos, self.start)
-                home_dist_new = self.get_maze_distance(next_pos, self.start)
-                reward += (home_dist_curr - home_dist_new) * 0.1
+                    # if invader_dist_new < 1: # SI SE LO COME
+                    #     reward += 10
+            # elif remaining_food_to_defend < self.initial_food * 0.2:
+            #     reward += (food_def_dist_curr - food_def_dist_new) / remaining_food_to_defend
+            else:
+                if not my_state.is_pacman:
+                    reward += (food_dist_curr - food_dist_new) / remaining_food_to_eat
+                else:
+                    if len(defenders) > 0:
+                        if defenders[0].scared_timer > 0:
+                            reward += defender_dist_curr - defender_dist_new
+                        else:
+                            reward += defender_dist_new - defender_dist_curr
+                    else:
+                        if my_state.num_carrying > 5 or remaining_food_to_eat == 0:
+                            reward += (home_dist_curr - home_dist_new) / walls.width
+                        else:
+                            reward += (food_dist_curr - food_dist_new) / remaining_food_to_eat
 
             self.reward = reward
-        else:
-            reward += state.get_score()
-    
+
         return reward
     
     def final(self, state):
@@ -257,8 +298,8 @@ class ApproximateQAgent(CaptureAgent):
             enemy_food = self.get_food(game_state)
             # enemy_states = [game_state.data.agent_states[enemy] for enemy in enemies_id]
             walls = game_state.get_walls()
-            enemies = [successor.get_agent_state(i) for i in self.get_opponents(successor)]
-            home_pos = self.start
+            enemies_next = [successor.get_agent_state(i) for i in self.get_opponents(successor)]
+            enemies = [game_state.get_agent_state(i) for i in self.get_opponents(game_state)]
 
             distances = game_state.get_agent_distances()
             if len(distances) == 0: # chapuza gorda
@@ -270,6 +311,7 @@ class ApproximateQAgent(CaptureAgent):
             x, y = game_state.get_agent_position(self.index)
             dx, dy = Actions.direction_to_vector(action)
             next_x, next_y = int(x + dx), int(y + dy)
+            team_food = self.get_food_you_are_defending(game_state)
 
             # FEATURE 1: DISTANCE TO FOOD
             remaining_food = 0
@@ -282,21 +324,45 @@ class ApproximateQAgent(CaptureAgent):
                 current_distance_to_food = self.get_maze_distance((x, y), self.closestFood((x, y), enemy_food)[1])
                 new_distance_to_food = self.get_maze_distance((next_x, next_y), self.closestFood((next_x, next_y), enemy_food)[1])
                 features['dist-closest-food'] = float(current_distance_to_food-new_distance_to_food) / (walls.width * walls.height)
+            else: features['dist-closest-food'] = 0
 
             # FEATURE 2: INVADERS CLOSE
             invaders = [a for a in enemies if a.is_pacman and a.get_position() is not None]
-            features['invaders-close'] = len(invaders) / len(enemies)
+            invader_dist_curr = invader_dist_new = float('inf')
+            for inv in invaders:
+                invader_dist_curr = min(invader_dist_curr, self.get_maze_distance((x, y), inv.get_position()))
+                invader_dist_new = min(invader_dist_new, self.get_maze_distance((next_x, next_y), inv.get_position()))
+            if len(invaders) > 0:
+                features['invaders-close'] = float(invader_dist_curr-invader_dist_new) / (walls.width * walls.height)
+            else: features['invaders-close'] = 0
 
             # FEATURE 3: DEFENDERS CLOSE
             defenders = [a for a in enemies if not a.is_pacman and a.get_position() is not None]
-            features['defenders-close'] = len(defenders) / len(enemies)
+            defender_dist_curr = defender_dist_new = float('inf')
+            for df in defenders:
+                defender_dist_curr = min(defender_dist_curr, self.get_maze_distance((x, y), df.get_position()))
+                defender_dist_new = min(defender_dist_new, self.get_maze_distance((next_x, next_y), df.get_position()))
+            if len(defenders) > 0:
+                features['defenders-close'] = float(defender_dist_curr-defender_dist_new) / (walls.width * walls.height)
+            else: features['defenders-close'] = 0
 
-            # FEATURE 4: SCORE FOOD
+            remaining_food_to_defend = 0
+            for i in range(team_food.width):
+                for j in range(team_food.height):
+                    if team_food[i][j]:
+                        remaining_food_to_defend += 1
+
+            # if remaining_food_to_defend > 0:
+            #     food_def_dist_curr = self.get_maze_distance((x, y), self.closestFood((x, y), team_food)[1])
+            #     food_def_dist_new = self.get_maze_distance((next_x, next_y), self.closestFood((next_x, next_y), team_food)[1])
+            #     features['dist-closest-defending-food'] = float(food_def_dist_curr-food_def_dist_new) / (walls.width * walls.height)
+
+            # FEATURE 4: SCORE POINTS
             if game_state.get_agent_state(self.index).num_carrying > 0:
-                home_dist_curr = self.get_maze_distance((x, y), home_pos)
-                home_dist_new = self.get_maze_distance((next_x, next_y), home_pos)
-                features['return-food'] = float(home_dist_curr - home_dist_new) / (walls.width * walls.height)
-
+                home_dist_curr = self.get_maze_distance((x, y), self.start)
+                home_dist_new = self.get_maze_distance((next_x, next_y), self.start)
+                features['return-food'] = float(home_dist_curr - home_dist_new) / walls.width
+            else: features['return-food'] = 0
 
             self.features = features
         else:

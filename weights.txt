@@ -1,1 +1,1 @@
-{"dist-closest-food": 0.1653345969749353, "invaders-close": 15.822051934510972, "defenders-close": -26.07180369121832, "return-food": 0.0432627368631276}
+{"dist-closest-food": 0.2020983366958964, "invaders-close": 6.3116817238169505, "defenders-close": -6.345723049256376, "return-food": 0.8873979233452823}
