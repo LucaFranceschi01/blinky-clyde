@@ -183,6 +183,12 @@ class ApproximateQAgent(CaptureAgent):
             if len(defenders) > 0: # avoid +inf ?
                 reward += defender_dist_new - defender_dist_curr
 
+            # IF CARRIES FOOD RETURN HOME
+            if my_state.num_carrying > 0:
+                home_dist_curr = self.get_maze_distance(current_pos, self.start)
+                home_dist_new = self.get_maze_distance(next_pos, self.start)
+                reward += (home_dist_curr - home_dist_new) * 0.1
+
             self.reward = reward
         else:
             reward += state.get_score()
@@ -252,6 +258,7 @@ class ApproximateQAgent(CaptureAgent):
             # enemy_states = [game_state.data.agent_states[enemy] for enemy in enemies_id]
             walls = game_state.get_walls()
             enemies = [successor.get_agent_state(i) for i in self.get_opponents(successor)]
+            home_pos = self.start
 
             distances = game_state.get_agent_distances()
             if len(distances) == 0: # chapuza gorda
@@ -283,7 +290,14 @@ class ApproximateQAgent(CaptureAgent):
             # FEATURE 3: DEFENDERS CLOSE
             defenders = [a for a in enemies if not a.is_pacman and a.get_position() is not None]
             features['defenders-close'] = len(defenders) / len(enemies)
-                
+
+            # FEATURE 4: SCORE FOOD
+            if game_state.get_agent_state(self.index).num_carrying > 0:
+                home_dist_curr = self.get_maze_distance((x, y), home_pos)
+                home_dist_new = self.get_maze_distance((next_x, next_y), home_pos)
+                features['return-food'] = float(home_dist_curr - home_dist_new) / (walls.width * walls.height)
+
+
             self.features = features
         else:
             features = self.features
