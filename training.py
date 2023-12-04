@@ -3,7 +3,7 @@ import os
 import sys
 
 def main():
-	for _ in range(1000000):
+	for _ in range(100):
 		try:
 			capture.run(sys.argv[1:])
 		except TypeError:
