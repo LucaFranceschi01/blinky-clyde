@@ -1,6 +1,26 @@
-import contest.distanceCalculator as distanceCalculator
-from game import Directions, Actions, Agent
+from game import Actions
 
+def closest_food(approxQagent, pos, food):
+    '''
+    Returns distance and position of the closest food found from the position of the agent and
+    the matrix of food where if a position is true, means that there is a food in that position.
+    '''
+    dist_food = [float('inf'), (0, 0)]
+    for i in range(food.width):
+        for j in range(food.height):
+            if food[i][j]:
+                dist_food = min(dist_food, [approxQagent.get_maze_distance(pos, (i, j)), (i, j)], key=lambda x:x[0])
+    return dist_food
+
+def count_food(food):
+    food_count = 0
+    for i in range(food.width):
+        for j in range(food.height):
+            if food[i][j]:
+                food_count += 1
+    return food_count
+
+# UNUSED BY NOW
 def closestEnemy(pos, enemies, game_state):
     """
     Return closest ghost to our position
