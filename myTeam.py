@@ -241,6 +241,19 @@ class ApproximateQAgent(CaptureAgent):
                 invader_dist_curr = min(invader_dist_curr, self.get_maze_distance(position_current, inv.get_position()))
                 invader_dist_new = min(invader_dist_new, self.get_maze_distance(position_successor, inv.get_position()))
 
+
+
+            #NEW-----------------------------------------------------------------------
+            capsules_left = self.get_capsules(game_state)
+            
+            if len(capsules_left) > 0:
+                for capsule in capsules_left:
+                    capsule_dist_curr = min(capsule_dist_curr, self.get_maze_distance(position_current, capsule.get_position()))
+                    capsule_dist_new = min(capsule_dist_new, self.get_maze_distance(position_successor, capsule.get_position()))
+            #--------------------------------------------------------------------------
+
+
+
             # From variables defined above, which are the rewards ?
             if len(invaders) > 0:
                 if state_current.scared_timer > 0:
@@ -251,6 +264,29 @@ class ApproximateQAgent(CaptureAgent):
                     #     reward += 10
             # elif remaining_food_to_defend < self.initial_food * 0.2:
             #     reward += (food_def_dist_curr - food_def_dist_new) / remaining_food_to_defend
+                
+
+
+                #NEW-----------------------------------------------------------------------------------------
+                if remaining_food_to_defend < self.initial_food * 0.2:
+                    reward += (food_def_dist_curr - food_def_dist_new) / remaining_food_to_defend
+                else: 
+                    if state_current.is_pacman:
+                        if len(defenders) > 0:
+                            #IN PROCESSSS
+                            if near_capsule:
+                                reward += go 
+                            else:
+                                reward += defender_dist_new - defender_dist_curr
+                        else:
+                            if state_current.num_carrying > 5 or remaining_food_to_eat == 0:
+                                reward += (home_dist_curr - home_dist_new) / walls.width
+                            else:
+                                reward += (food_dist_curr - food_dist_new) / remaining_food_to_eat
+                #-------------------------------------------------------------------------------------------
+
+
+
             else:
                 if not state_current.is_pacman:
                     reward += (food_dist_curr - food_dist_new) / remaining_food_to_eat
@@ -266,6 +302,8 @@ class ApproximateQAgent(CaptureAgent):
                         else:
                             reward += (food_dist_curr - food_dist_new) / remaining_food_to_eat
 
+            #defend few food
+            #capsule near if attacked
             self.reward = reward
 
         return reward
