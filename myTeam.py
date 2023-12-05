@@ -58,10 +58,10 @@ class ApproximateQAgent(CaptureAgent):
 
     def computeValueFromQValues(self, game_state):
         '''
-          Returns max_action Q(state,action)
-          where the max is over legal actions.  Note that if
-          there are no legal actions, which is the case at the
-          terminal state, you should return a value of 0.0.
+        Returns max_action Q(state,action)
+        where the max is over legal actions.  Note that if
+        there are no legal actions, which is the case at the
+        terminal state, you should return a value of 0.0.
         '''
         legalActions = game_state.get_legal_actions(self.index)
         if len(legalActions) == 0:
@@ -75,9 +75,9 @@ class ApproximateQAgent(CaptureAgent):
 
     def computeActionFromQValues(self, game_state):
         '''
-          Compute the best action to take in a state.  Note that if there
-          are no legal actions, which is the case at the terminal state,
-          you should return None.
+        Compute the best action to take in a state.  Note that if there
+        are no legal actions, which is the case at the terminal state,
+        you should return None.
         '''
         legalActions = game_state.get_legal_actions(self.index)
         if len(legalActions) == 0:
@@ -180,9 +180,11 @@ class ApproximateQAgent(CaptureAgent):
         return features
 
     def get_reward(self, game_state, action):
-        '''A denser way of getting rewards that takes into account:
+        '''
+        A denser way of getting rewards that takes into account:
         More reward the closest to food
-        If very near to an enemy, less reward'''
+        If very near to an enemy, less reward
+        '''
 
         reward = 0
         if not game_state.is_over():
@@ -277,14 +279,14 @@ class ApproximateQAgent(CaptureAgent):
 
     def getQValue(self, game_state, action):
         '''
-          Should return Q(state,action) = w * featureVector
-          where * is the dotProduct operator
+        Should return Q(state,action) = w * featureVector
+        where * is the dotProduct operator
         '''
         return self.get_features(game_state, action) * self.get_weights()
 
     def update(self, game_state, action, nextState, reward):
         '''
-           Should update your weights based on transition
+        Should update your weights based on transition
         '''
         delta = (float(reward) + self.discount*self.computeValueFromQValues(nextState)) - self.getQValue(game_state, action)
         for key in self.features:
