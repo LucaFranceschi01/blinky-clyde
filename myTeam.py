@@ -162,21 +162,38 @@ class ApproximateQAgent(CaptureAgent):
                 features['return-food'] = float(home_dist_curr - home_dist_new) / walls.width
             else: features['return-food'] = 0
 
+
+
+            # NEW --------------------------------------------------------------- #IN PROCESS
+            #FEATURE 4: DEFEND FOOD
+            if remaining_food_to_defend > 0:
+                food_def_dist_curr = self.get_maze_distance(position_current, closest_food(self, position_current, food_team)[1])
+                food_def_dist_new = self.get_maze_distance(position_successor, closest_food(self, position_successor, food_team)[1])
+                features['dist-closest-defending-food'] = float(food_def_dist_curr - food_def_dist_new) / (walls.width * walls.height)
+
+            #FEATURE 5: 
+            capsules = self.get_capsules(game_state)
+            capsule_dist_curr = capsule_dist_new = float('inf')
+            
+            for capsule in capsules:
+                capsule_dist_curr = min(capsule_dist_curr, self.get_maze_distance(position_current, capsule))
+                capsule_dist_new = min(capsule_dist_new, self.get_maze_distance(position_successor, capsule))
+                if state_current.is_pacman:
+                    if len(defenders) > 0:
+                        #IN PROCESSSS
+                        if capsule_dist_curr < invader_dist_new:
+                            reward +=  capsule_dist_curr - capsule_dist_new
+                            features['capsule-position'] = float(capsule_dist_curr - capsule_dist_new) / (walls.width * walls.height)
+                        else:
+                            features['capsule-postion'] = float(capsule_dist_new - capsule_dist_curr) / (walls.width * walls.height)
+            # --------------------------------------------------------------------------------
+
+
+
             self.features = features
         else:
 
-            features = self.features
-
-        #FEATURE 3: RETURN FOOD TO HOME
-        #distance_to_home = self.get_maze_distance(position_current, self.start)
-        #features['return-food'] = float(distance_to_home) / (walls.width * walls.height)
-
-        # FEATURE ---
-        # if remaining_food_to_defend > 0:
-        #     food_def_dist_curr = self.get_maze_distance(position_current, closest_food(self, position_current, food_team)[1])
-        #     food_def_dist_new = self.get_maze_distance(position_successor, closest_food(self, position_successor, food_team)[1])
-        #     features['dist-closest-defending-food'] = float(food_def_dist_curr-food_def_dist_new) / (walls.width * walls.height)
-
+            features = self.features     
         return features
 
     def get_reward(self, game_state, action):
@@ -245,11 +262,12 @@ class ApproximateQAgent(CaptureAgent):
 
             #NEW-----------------------------------------------------------------------
             capsules_left = self.get_capsules(game_state)
+            capsule_dist_curr = capsule_dist_new = float('inf')
             
-            if len(capsules_left) > 0:
-                for capsule in capsules_left:
-                    capsule_dist_curr = min(capsule_dist_curr, self.get_maze_distance(position_current, capsule.get_position()))
-                    capsule_dist_new = min(capsule_dist_new, self.get_maze_distance(position_successor, capsule.get_position()))
+            #if len(capsules_left) > 0:
+            for capsule in capsules_left:
+                capsule_dist_curr = min(capsule_dist_curr, self.get_maze_distance(position_current, capsule))
+                capsule_dist_new = min(capsule_dist_new, self.get_maze_distance(position_successor, capsule))
             #--------------------------------------------------------------------------
 
 
@@ -274,8 +292,8 @@ class ApproximateQAgent(CaptureAgent):
                     if state_current.is_pacman:
                         if len(defenders) > 0:
                             #IN PROCESSSS
-                            if near_capsule:
-                                reward += go 
+                            if capsule_dist_curr < invader_dist_new:
+                                reward +=  capsule_dist_curr - capsule_dist_new
                             else:
                                 reward += defender_dist_new - defender_dist_curr
                         else:
