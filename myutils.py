@@ -12,6 +12,12 @@ def closest_food(approxQagent, pos, food):
                 dist_food = min(dist_food, [approxQagent.get_maze_distance(pos, (i, j)), (i, j)], key=lambda x:x[0])
     return dist_food
 
+def closest_capsule(approxQagent, pos, capsules):
+    dist_capsule = float('inf')
+    for c in capsules:
+        dist_capsule = min(dist_capsule, approxQagent.get_maze_distance(pos, c))
+    return dist_capsule
+
 def count_food(food):
     food_count = 0
     for i in range(food.width):
