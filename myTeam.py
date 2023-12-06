@@ -41,7 +41,8 @@ class ApproximateQAgent(CaptureAgent):
         self.weights = util.Counter(json.loads(raw_weights))
 
         # Create helpful variables for Q-values computation
-        self.epsilon = float(0.8)
+        self.training = False
+        self.epsilon = float(1.0)
         self.alpha = float(0.5)
         self.discount = float(1)
 
@@ -368,20 +369,22 @@ class ApproximateQAgent(CaptureAgent):
             self.weights[key] += self.alpha * delta * self.get_features(game_state, action)[key]
         # self.weights.normalize()
 
-        # path = os.path.dirname(os.path.realpath(__file__))
-        # with open(path+'/weights.txt', 'w') as fout:
-        #     fout.write(json.dumps(self.weights))
+        if self.training:
+            self.update(game_state, self.action, self.next_state, reward)
+            path = os.path.dirname(os.path.realpath(__file__))
+            with open(path+'/weights.txt', 'w') as fout: 
+                fout.write(json.dumps(self.weights))
 
     def final(self, game_state):
         '''
         Is called when the game is finished, last opportunity for updating weights
         '''
         reward = self.get_reward(game_state, self.action)
-        self.update(game_state, self.action, self.next_state, reward)
-
-        path = os.path.dirname(os.path.realpath(__file__))
-        with open(path+'/weights.txt', 'w') as fout: 
-            fout.write(json.dumps(self.weights))
+        if self.training:
+            self.update(game_state, self.action, self.next_state, reward)
+            path = os.path.dirname(os.path.realpath(__file__))
+            with open(path+'/weights.txt', 'w') as fout: 
+                fout.write(json.dumps(self.weights))
 
     def choose_action(self, game_state):
         '''
@@ -396,7 +399,8 @@ class ApproximateQAgent(CaptureAgent):
         
         if random.random() < self.epsilon:
             action = self.computeActionFromQValues(game_state) # Take best policy action
-            self.update(game_state, action, self.get_successor(game_state, action), self.get_reward(game_state, action))
+            if self.training:
+                self.update(game_state, action, self.get_successor(game_state, action), self.get_reward(game_state, action))
         else:
             action = random.choice(legalActions)
 
