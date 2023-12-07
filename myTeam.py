@@ -42,7 +42,7 @@ class ApproximateQAgent(CaptureAgent):
 
         # Create helpful variables for Q-values computation
         self.training = False
-        self.epsilon = float(1.0)
+        self.epsilon = float(0.8)
         self.alpha = float(0.5)
         self.discount = float(1)
 
@@ -128,62 +128,10 @@ class ApproximateQAgent(CaptureAgent):
             # Current and future locations of the agent
             position_current = game_state.get_agent_position(self.index)
             position_successor = state_successor.get_agent_position(self.index)
-            '''
-            # FEATURE 1: DISTANCE TO FOOD
-            if remaining_food > 0:
-                current_distance_to_food = self.get_maze_distance(position_current, closest_food(self, position_current, food_enemy)[1])
-                new_distance_to_food = self.get_maze_distance(position_successor, closest_food(self, position_successor, food_enemy)[1])
-                features['closest-food-eat'] = float(current_distance_to_food-new_distance_to_food) / (walls.width * walls.height)
-            else:
-                features['closest-food-eat'] = 0
 
-            # FEATURE 2: DISTANCE TO FOOD TO DEFEND
-            if remaining_food_to_defend > 0:
-                current_distance_to_food_def = self.get_maze_distance(position_current, closest_food(self, position_current, food_team)[1])
-                new_distance_to_food_def = self.get_maze_distance(position_successor, closest_food(self, position_successor, food_team)[1])
-                features['closest-food-defend'] = float(current_distance_to_food_def-new_distance_to_food_def) / (walls.width * walls.height)
-            else:
-                features['closest-food-defend'] = 0
-
-            # FEATURE 3: INVADERS CLOSE
-            invaders = [a for a in states_enemies if a.is_pacman and a.get_position() is not None]
-            invader_dist_curr = invader_dist_new = float('inf')
-            for inv in invaders:
-                invader_dist_curr = min(invader_dist_curr, self.get_maze_distance(position_current, inv.get_position()))
-                invader_dist_new = min(invader_dist_new, self.get_maze_distance(position_successor, inv.get_position()))
-            if len(invaders) > 0:
-                features['invaders-close'] = float(invader_dist_curr-invader_dist_new) / (walls.width * walls.height)
-            else:
-                features['invaders-close'] = 0
-
-            # FEATURE 4: DEFENDERS CLOSE
-            defenders = [a for a in states_enemies if not a.is_pacman and a.get_position() is not None]
-            defender_dist_curr = defender_dist_new = float('inf')
-            for df in defenders:
-                defender_dist_curr = min(defender_dist_curr, self.get_maze_distance(position_current, df.get_position()))
-                defender_dist_new = min(defender_dist_new, self.get_maze_distance(position_successor, df.get_position()))
-            if len(defenders) > 0:
-                features['defenders-close'] = float(defender_dist_curr-defender_dist_new) / (walls.width * walls.height)
-            else:
-                features['defenders-close'] = 0
-
-            # FEATURE 5: RETURN FOOD HOME
-            if game_state.get_agent_state(self.index).num_carrying > 0:
-                home_dist_curr = self.get_maze_distance(position_current, self.start)
-                home_dist_new = self.get_maze_distance(position_successor, self.start)
-                features['return-food'] = float(home_dist_curr - home_dist_new) / walls.width
-            else:
-                features['return-food'] = 0
-
-            if len(capsules) > 0:
-                capsule_dist_curr = closest_capsule(self, position_current, capsules)
-                capsule_dist_new = closest_capsule(self, position_successor, capsules)
-                features['capsules-close'] = float(capsule_dist_curr - capsule_dist_new) / (walls.width * walls.height)
-            else:
-                features['capsules-close'] = 0
-
-            self.features = features
-            '''
+            # Current location of teammate
+            teammate_idx = (self.index + 2) % 4
+            teammate_position_current = game_state.get_agent_position(teammate_idx)
 
             # Distances to initial position for current and next state
             home_dist_curr = self.get_maze_distance(position_current, self.start)
@@ -217,28 +165,36 @@ class ApproximateQAgent(CaptureAgent):
                 invader_dist_curr = min(invader_dist_curr, self.get_maze_distance(position_current, inv.get_position()))
                 invader_dist_new = min(invader_dist_new, self.get_maze_distance(position_successor, inv.get_position()))
 
+            # Distances to teammate
+            teammate_dist_curr = self.get_maze_distance(position_current, teammate_position_current)
+            teammate_dist_new = self.get_maze_distance(position_successor, teammate_position_current)
+
             if len(invaders) > 0:
                 if state_current.scared_timer > 0:
                     features['invaders'] = (invader_dist_new - invader_dist_curr) / (walls.width * walls.height) # RUN
                 else:
                     features['invaders'] = (invader_dist_curr - invader_dist_new) / (walls.width * walls.height) # A POR ELLOS
-            elif remaining_food_to_defend < 5:
+            elif remaining_food_to_defend < 7:
                 features['food-defense'] = (food_def_dist_curr - food_def_dist_new) / (walls.width * walls.height) # DEFEND FOOD (CAMPEO)
             elif state_current.is_pacman:
                 if len(defenders) > 0:
                     if defenders[0].scared_timer > 1:
                         features['defenders'] = (defender_dist_curr - defender_dist_new) / (walls.width * walls.height) # A POR ELLOS
-                    elif len(capsules) > 0 and defender_dist_new >= defender_dist_curr and capsule_dist_new <= capsule_dist_curr: # and does not go towards defender
+                    elif len(capsules) > 0 and defender_dist_new >= defender_dist_curr and capsule_dist_new <= capsule_dist_curr and defender_dist_curr > 2:
+                        # FALTA AND NOT TOO CLOSE TO ENEMY
                         features['capsules'] = (capsule_dist_curr - capsule_dist_new) / (walls.width * walls.height) # GO EAT CAPSULE
+                    elif defender_dist_curr > 2:
+                        features['return'] = (home_dist_curr - home_dist_new) / walls.width # TRY TO RETURN HOME BEFORE IT'S TOO LATE
                     else:
-                        features['defenders'] = (defender_dist_new - defender_dist_curr) / (walls.width * walls.height) # RUN
-                        if len(state_successor.get_legal_actions(self.index)) <= 2:
+                        features['defenders'] = (defender_dist_new - defender_dist_curr) / (walls.width * walls.height) # RUN AND DON'T LOOK BACK
+                        if len(state_successor.get_legal_actions(self.index)) <= 2: # TRY TO NOT GET STUCK
                             features['defenders'] -= 1
-                elif state_current.num_carrying > 2:    
+                elif state_current.num_carrying > 3:    
                     features['return'] = (home_dist_curr - home_dist_new) / (walls.width) # RETURN FOOD HOME
                 else:
                     features['food-offense'] = (food_dist_curr - food_dist_new) / (walls.width * walls.height) # GO EAT FOOD
             else:
+                features['explore'] = (teammate_dist_curr - teammate_dist_new) / (walls.width * walls.height) # TRY TO SPREAD 
                 features['food-offense'] = (food_dist_curr - food_dist_new) / (walls.width * walls.height) # GO EAT FOOD
 
             if action == 'Stop':
@@ -295,6 +251,10 @@ class ApproximateQAgent(CaptureAgent):
             capsule_dist_curr = closest_capsule(self, position_current, capsules)
             capsule_dist_new = closest_capsule(self, position_successor, capsules)
 
+            # Current location of teammate
+            teammate_idx = (self.index + 2) % 4
+            teammate_position_current = game_state.get_agent_position(teammate_idx)
+
             # Distances to closest food to eat
             if remaining_food_to_eat > 0:
                 food_dist_curr = self.get_maze_distance(position_current, closest_food(self, position_current, food_enemy)[1])
@@ -319,13 +279,17 @@ class ApproximateQAgent(CaptureAgent):
                 invader_dist_curr = min(invader_dist_curr, self.get_maze_distance(position_current, inv.get_position()))
                 invader_dist_new = min(invader_dist_new, self.get_maze_distance(position_successor, inv.get_position()))
 
+            # Distances to teammate
+            teammate_dist_curr = self.get_maze_distance(position_current, teammate_position_current)
+            teammate_dist_new = self.get_maze_distance(position_successor, teammate_position_current)
+
             # From variables defined above, which are the rewards ?
             if len(invaders) > 0:
                 if state_current.scared_timer > 0:
                     reward += invader_dist_new - invader_dist_curr # RUN
                 else:
                     reward += invader_dist_curr - invader_dist_new # A POR ELLOS
-            elif remaining_food_to_defend < 5:
+            elif remaining_food_to_defend < 7:
                 reward += food_def_dist_curr - food_def_dist_new # DEFEND FOOD (CAMPEO)
             elif len(defenders) > 0:
                 if defenders[0].scared_timer > 1:
@@ -337,7 +301,10 @@ class ApproximateQAgent(CaptureAgent):
             elif state_current.num_carrying > 2:    
                 reward += home_dist_curr - home_dist_new # RETURN FOOD HOME
             else:
-                reward += (food_dist_curr - food_dist_new)
+                if len(defenders) > 0:
+                    reward += (teammate_dist_curr - teammate_dist_new) / (walls.width * walls.height) # DEFEND FOOD (TO EXPLORE)
+                else:
+                    reward += (food_dist_curr - food_dist_new) # GO EAT FOOD
 
             if action == 'Stop':
                 reward -= 1
@@ -370,7 +337,6 @@ class ApproximateQAgent(CaptureAgent):
         # self.weights.normalize()
 
         if self.training:
-            self.update(game_state, self.action, self.next_state, reward)
             path = os.path.dirname(os.path.realpath(__file__))
             with open(path+'/weights.txt', 'w') as fout: 
                 fout.write(json.dumps(self.weights))
@@ -397,12 +363,14 @@ class ApproximateQAgent(CaptureAgent):
         if len(legalActions) == 0:
           return action
         
-        if random.random() < self.epsilon:
-            action = self.computeActionFromQValues(game_state) # Take best policy action
-            if self.training:
+        if self.training:
+            if random.random() < self.epsilon:
+                action = self.computeActionFromQValues(game_state) # Take best policy action
                 self.update(game_state, action, self.get_successor(game_state, action), self.get_reward(game_state, action))
+            else:
+                action = random.choice(legalActions)
         else:
-            action = random.choice(legalActions)
+            action = self.computeActionFromQValues(game_state) # Take best policy action
 
         return action
 
