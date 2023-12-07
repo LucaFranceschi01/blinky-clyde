@@ -6,7 +6,7 @@
 
 **Instructor:** Sergio Calo
 
-**Team name:** blinky&clyde
+**Team name:** blinky-clyde
 
 **Team members:**
 
