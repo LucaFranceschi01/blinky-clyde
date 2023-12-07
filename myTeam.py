@@ -181,7 +181,6 @@ class ApproximateQAgent(CaptureAgent):
                     if defenders[0].scared_timer > 1:
                         features['defenders'] = (defender_dist_curr - defender_dist_new) / (walls.width * walls.height) # A POR ELLOS
                     elif len(capsules) > 0 and defender_dist_new >= defender_dist_curr and capsule_dist_new <= capsule_dist_curr and defender_dist_curr > 2:
-                        # FALTA AND NOT TOO CLOSE TO ENEMY
                         features['capsules'] = (capsule_dist_curr - capsule_dist_new) / (walls.width * walls.height) # GO EAT CAPSULE
                     elif defender_dist_curr > 2:
                         features['return'] = (home_dist_curr - home_dist_new) / walls.width # TRY TO RETURN HOME BEFORE IT'S TOO LATE
