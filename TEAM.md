@@ -13,7 +13,7 @@
 * 199149 - Luca Franceschi - luca.franceschi01@estudiant.upf.edu - LucaFranceschi01
 * 198640 - Candela Álvarez López - candela.alvarez02@estudiant.upf.edu - CandelaAlvLop
 
-## Why Blinky & Clyde ?
+## Why Blinky & Clyde?
 
 Originally, Namco designed the ghosts to have their own distinct personalities.
 Each ghost's name gives a hint to its strategy for tracking down Pac-Man: Shadow ("Blinky") always chases Pac-Man, Speedy ("Pinky") tries to get ahead of him, Bashful ("Inky") uses a more complicated strategy to zero in on him, and Pokey ("Clyde") alternates between chasing him and running away.
