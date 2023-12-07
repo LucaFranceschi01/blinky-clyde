@@ -47,9 +47,10 @@ class ApproximateQAgent(CaptureAgent):
         self.discount = float(1)
 
         self.start = None # Position where the agent is born
-        self.action = None # Action that is taken in the current turn (ironically only used in final function)
-        self.next_state = None # State resulting from taking self.action in current state (same irony)
+        self.action = None # Action that is taken in the current turn
+        self.next_state = None # State resulting from taking self.action in current state
         self.distances = None # Distances from the agent to the other agents
+
 
     def register_initial_state(self, game_state):
         super().register_initial_state(game_state)
@@ -58,6 +59,7 @@ class ApproximateQAgent(CaptureAgent):
         food = self.get_food_you_are_defending(game_state)
         remaining_food = count_food(food)
         self.initial_food = remaining_food
+
 
     def computeValueFromQValues(self, game_state):
         '''
@@ -75,6 +77,7 @@ class ApproximateQAgent(CaptureAgent):
         for a in legalActions: 
             q_max = max(q_max, self.getQValue(game_state, a))
         return q_max
+
 
     def computeActionFromQValues(self, game_state):
         '''
@@ -95,6 +98,7 @@ class ApproximateQAgent(CaptureAgent):
         self.next_state = self.get_successor(game_state, self.action)
         return self.action
     
+
     def get_features(self, game_state: GameState, action):
         '''
         Returns a counter of features for the state
@@ -114,13 +118,14 @@ class ApproximateQAgent(CaptureAgent):
             # Count food remaining food to defend
             food_team = self.get_food_you_are_defending(game_state)
             remaining_food_to_defend = count_food(food_team)
+
             capsules = self.get_capsules(game_state)
             
             walls = game_state.get_walls()
 
-            # Not used by now
+            # Get distances from the agent to the other agents
             distances = game_state.get_agent_distances()
-            if len(distances) == 0:
+            if len(distances) == 0: # Sometimes it may output no distances, we can replace them and they will be probably similar
                 distances = self.distances
             else:
                 self.distances = distances
@@ -173,13 +178,13 @@ class ApproximateQAgent(CaptureAgent):
                 if state_current.scared_timer > 0:
                     features['invaders'] = (invader_dist_new - invader_dist_curr) / (walls.width * walls.height) # RUN
                 else:
-                    features['invaders'] = (invader_dist_curr - invader_dist_new) / (walls.width * walls.height) # A POR ELLOS
+                    features['invaders'] = (invader_dist_curr - invader_dist_new) / (walls.width * walls.height) # CHASE THEM
             elif remaining_food_to_defend < 7:
-                features['food-defense'] = (food_def_dist_curr - food_def_dist_new) / (walls.width * walls.height) # DEFEND FOOD (CAMPEO)
+                features['food-defense'] = (food_def_dist_curr - food_def_dist_new) / (walls.width * walls.height) # DEFEND FOOD
             elif state_current.is_pacman:
                 if len(defenders) > 0:
                     if defenders[0].scared_timer > 1:
-                        features['defenders'] = (defender_dist_curr - defender_dist_new) / (walls.width * walls.height) # A POR ELLOS
+                        features['defenders'] = (defender_dist_curr - defender_dist_new) / (walls.width * walls.height) # CHASE THEM
                     elif len(capsules) > 0 and defender_dist_new >= defender_dist_curr and capsule_dist_new <= capsule_dist_curr and defender_dist_curr > 2:
                         features['capsules'] = (capsule_dist_curr - capsule_dist_new) / (walls.width * walls.height) # GO EAT CAPSULE
                     elif defender_dist_curr > 2:
@@ -202,10 +207,10 @@ class ApproximateQAgent(CaptureAgent):
             self.features = features
 
         else:
-
             features = self.features
             
         return features
+
 
     def get_reward(self, game_state, action):
         '''
@@ -229,7 +234,6 @@ class ApproximateQAgent(CaptureAgent):
             capsules = self.get_capsules(game_state)
             walls = game_state.get_walls()
 
-            # Not used by now
             distances = game_state.get_agent_distances()
             if len(distances) == 0: # Sometimes it may output no distances, we can replace them and they will be probably similar
                 distances = self.distances
@@ -282,17 +286,17 @@ class ApproximateQAgent(CaptureAgent):
             teammate_dist_curr = self.get_maze_distance(position_current, teammate_position_current)
             teammate_dist_new = self.get_maze_distance(position_successor, teammate_position_current)
 
-            # From variables defined above, which are the rewards ?
+            # From variables defined above, definition of the rewards
             if len(invaders) > 0:
                 if state_current.scared_timer > 0:
                     reward += invader_dist_new - invader_dist_curr # RUN
                 else:
-                    reward += invader_dist_curr - invader_dist_new # A POR ELLOS
+                    reward += invader_dist_curr - invader_dist_new # CHASE THEM
             elif remaining_food_to_defend < 7:
-                reward += food_def_dist_curr - food_def_dist_new # DEFEND FOOD (CAMPEO)
+                reward += food_def_dist_curr - food_def_dist_new # DEFEND FOOD
             elif len(defenders) > 0:
                 if defenders[0].scared_timer > 1:
-                    reward += defender_dist_curr - defender_dist_new # A POR ELLOS
+                    reward += defender_dist_curr - defender_dist_new # CHASE THEM
                 elif len(capsules) > 0 and defender_dist_new >= defender_dist_curr and capsule_dist_new <= capsule_dist_curr:
                     reward += capsule_dist_curr - capsule_dist_new # GO EAT CAPSULE
                 else:
@@ -312,12 +316,14 @@ class ApproximateQAgent(CaptureAgent):
 
         return reward
 
+
     def get_weights(self):
         '''
         Normally, weights do not depend on the game game_state.  They can be either
         a counter or a dictionary.
         '''
         return self.weights
+
 
     def getQValue(self, game_state, action):
         '''
@@ -326,6 +332,7 @@ class ApproximateQAgent(CaptureAgent):
         '''
         return self.get_features(game_state, action) * self.get_weights()
 
+
     def update(self, game_state, action, nextState, reward):
         '''
         Should update your weights based on transition
@@ -333,12 +340,12 @@ class ApproximateQAgent(CaptureAgent):
         delta = (float(reward) + self.discount*self.computeValueFromQValues(nextState)) - self.getQValue(game_state, action)
         for key in self.features:
             self.weights[key] += self.alpha * delta * self.get_features(game_state, action)[key]
-        # self.weights.normalize()
 
         if self.training:
             path = os.path.dirname(os.path.realpath(__file__))
             with open(path+'/weights.txt', 'w') as fout: 
                 fout.write(json.dumps(self.weights))
+
 
     def final(self, game_state):
         '''
@@ -350,6 +357,7 @@ class ApproximateQAgent(CaptureAgent):
             path = os.path.dirname(os.path.realpath(__file__))
             with open(path+'/weights.txt', 'w') as fout: 
                 fout.write(json.dumps(self.weights))
+
 
     def choose_action(self, game_state):
         '''
@@ -370,8 +378,8 @@ class ApproximateQAgent(CaptureAgent):
                 action = random.choice(legalActions)
         else:
             action = self.computeActionFromQValues(game_state) # Take best policy action
-
         return action
+
 
     def get_successor(self, game_state, action):
         '''
@@ -381,7 +389,6 @@ class ApproximateQAgent(CaptureAgent):
             successor = game_state.generate_successor(self.index, action)
             pos = successor.get_agent_state(self.index).get_position()
             if pos != nearestPoint(pos):
-                # Only half a grid position was covered
                 return successor.generate_successor(self.index, action)
             else:
                 return successor
