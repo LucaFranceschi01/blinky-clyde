@@ -179,7 +179,7 @@ class ApproximateQAgent(CaptureAgent):
                     features['invaders'] = (invader_dist_new - invader_dist_curr) / (walls.width * walls.height) # RUN
                 else:
                     features['invaders'] = (invader_dist_curr - invader_dist_new) / (walls.width * walls.height) # CHASE THEM
-            elif remaining_food_to_defend < 7:
+            elif remaining_food_to_defend < 7 and remaining_food_to_defend > 0:
                 features['food-defense'] = (food_def_dist_curr - food_def_dist_new) / (walls.width * walls.height) # DEFEND FOOD
             elif state_current.is_pacman:
                 if len(defenders) > 0:
